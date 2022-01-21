@@ -1,0 +1,45 @@
+import numpy as np
+from lfads import LFADSNET
+from data_prepare import *
+from loss_function import *
+from trainer import *
+from utils import *
+import config
+import os
+
+if __name__ == "__main__":
+    print("===========================================")
+    print("Retrieving default LFADS model hyperparameters")
+    print("===========================================")
+
+    cfg = config.get_arguments()
+    EXPERIMENT = f"{cfg.run_name}"
+    RESULTS = f"../results/{EXPERIMENT}"
+    MODEL_PATH = f"../models/{EXPERIMENT}"
+    
+    make_folder(MODEL_PATH)
+    make_folder(RESULTS)
+
+    os.environ['CUDA_VISIBLE_DEVICES']='0'
+    save_train = False
+    save_val = False
+    save_test = True
+
+    ################################################# Loading Datasets ##################################################
+    file_location = cfg.data
+    if cfg.noise_type == 'EOG':
+        EEG_all = np.load( file_location + 'EEG_all_epochs.npy')
+        noise_all = np.load( file_location + 'EOG_all_epochs.npy')
+    elif cfg.noise_type == 'EMG':
+        EEG_all = np.load( file_location + 'EEG_all_epochs_512hz.npy')                              
+        noise_all = np.load( file_location + 'EMG_all_epochs_512hz.npy')
+    noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, noiseEEG_test, EEG_test, test_std_VALUE = prepare_data(EEG_all = EEG_all, noise_all = noise_all, combin_num = 10, train_per = 0.8, noise_type = cfg.noise_type)
+    
+    
+    model = LFADSNET(cfg)
+    optimizer = make_optimizer(cfg, model)
+
+    trainer = Trainer(cfg)
+    Trainer.train(model, noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, optimizer)
+
+ 
