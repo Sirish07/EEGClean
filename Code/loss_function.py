@@ -1,24 +1,41 @@
 import tensorflow as tf
+import torch.nn as nn
 import torch
-
+import matplotlib.pyplot as plt
+import pandas as pd
 
 ################################# loss functions ##########################################################
 
-def denoise_loss_mse(denoise, clean):      
-  loss = tf.losses.mean_squared_error(denoise, clean)
-  return tf.reduce_mean(loss)
+def denoise_loss_mse(denoise, clean):    
+  loss = nn.MSELoss(reduction = 'mean')
+  return loss(denoise, clean)
 
 def denoise_loss_rmse(denoise, clean):      #tmse
-  loss = tf.losses.mean_squared_error(denoise, clean)
+  loss = denoise_loss_mse(denoise, clean)
   #loss2 = tf.losses.mean_squared_error(noise, clean)
-  return tf.math.sqrt(tf.reduce_mean(loss))
+  return torch.sqrt(loss)
 
 def denoise_loss_rrmset(denoise, clean):      #tmse
   rmse1 = denoise_loss_rmse(denoise, clean)
-  rmse2 = denoise_loss_rmse(clean, tf.zeros(clean.shape[0], tf.float64))
+  rmse2 = denoise_loss_rmse(clean, torch.zeros(clean.shape))
   #loss2 = tf.losses.mean_squared_error(noise, clean)
   return rmse1/rmse2
 
+def denoise_loss_rrmsepsd(denoise, clean):
+
+  psd1,_,_ = plt.psd(denoise, Fs = 256)
+  psd2,_,_ = plt.psd(clean, Fs = 256)
+  rmse1 = denoise_loss_rmse(psd1, psd2)
+  rmse2 = denoise_loss_rmse(psd2, torch.zeros(psd2.shape))
+  return rmse1 / rmse2
+
+def average_correlation_coefficient(denoise, clean):
+  denoise = pd.series(denoise)
+  clean = pd.series(clean)
+  covar = denoise.cov(clean)
+  var_prod = torch.sqrt(denoise.var() * clean.var())
+  return covar / var_prod
+  
 def KLCostGaussian(post_mu, post_lv, prior_mu, prior_lv):
     '''
     KLCostGaussian(post_mu, post_lv, prior_mu, prior_lv)

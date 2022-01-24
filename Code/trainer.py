@@ -4,7 +4,7 @@ import math
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
-from loss_function import denoise_loss_mse
+from loss_function import *
 from utils import *
 
 class Trainer:
@@ -26,17 +26,17 @@ class Trainer:
     def train(self, model, noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, optimizer):
         print("=============Training Start================")
         use_tensorboard = True
-        writer = create_summary_writer(self.cfg)
+        writer = create_summary_writer(self.run_name)
         for self.epoch in range(self.maxepochs):
             print(f"Epoch: {self.epoch}")
             train_loss, l2_loss, kl_weight, l2_weight = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer, writer)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val, l2_loss)
-
+            
             if self.scheduler_on:
                 self.__apply_decay(self.train_loss_store, train_loss, optimizer)
 
             self.train_loss_store.append(train_loss['epoch_train_loss'])
-            self.valid_loss_store.append(valid_loss['epoch_train_loss'])
+            self.valid_loss_store.append(valid_loss['epoch_valid_loss'])
 
             self.full_loss_store['train_loss'][self.epoch] = float(train_loss['epoch_train_loss'])
             self.full_loss_store['train_recon_loss'][self.epoch] = float(train_loss['epoch_recon_loss'])
@@ -49,7 +49,7 @@ class Trainer:
             if use_tensorboard:
                 
                 writer.add_scalars('1_Loss/1_Total_Loss', {'Training' : float(train_loss['epoch_train_loss']), 
-                                                         'Validation' : float(valid_loss['epoch_train_loss'])}, self.epoch)
+                                                         'Validation' : float(valid_loss['epoch_valid_loss'])}, self.epoch)
 
                 writer.add_scalars('1_Loss/2_Reconstruction_Loss', {'Training' :  float(train_loss['epoch_recon_loss']), 
                                                                   'Validation' : float(valid_loss['epoch_recon_loss'])}, self.epoch)
@@ -59,7 +59,7 @@ class Trainer:
                 
                 writer.add_scalar('1_Loss/4_L2_loss', float(l2_loss.data), self.epoch)
                 
-                writer.add_scalar('2_Optimizer/1_Learning_Rate', model.learning_rate, self.epoch)
+                writer.add_scalar('2_Optimizer/1_Learning_Rate', model.lr, self.epoch)
                 writer.add_scalar('2_Optimizer/2_KL_weight', kl_weight, self.epoch)
                 writer.add_scalar('2_Optimizer/3_L2_weight', l2_weight, self.epoch)
 
@@ -69,12 +69,24 @@ class Trainer:
                     self.last_saved = self.epoch
                     self.best = self.valid_loss_store[-1]
                     # saving checkpoint
-                    self.__save_checkpoint(model, optimizer)        
+                    self.__save_checkpoint(model, optimizer) 
+            writer.flush()       
         if use_tensorboard:
             writer.close()
         self.__save_checkpoint(model, optimizer, force = True)
 
 
+    def test(self, model, noiseEEG, EEG):
+        model.eval()
+        with torch.no_grad():
+            noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 1)), torch.FloatTensor(np.expand_dims(EEG, axis = 1))
+            model(noiseEEG)
+            denoiseout = model.predicted
+            mse_loss = denoise_loss_mse(denoiseout, EEG) / float(noiseEEG.shape[0])
+            rmset_loss = denoise_loss_rrmset(denoiseout, EEG) / float(noiseEEG.shape[0])
+            rmsepsd_loss = denoise_loss_rrmsepsd(denoiseout, EEG) / float(noiseEEG.shape[0])
+            acc = average_correlation_coefficient(denoiseout, EEG) / float(noiseEEG.shape[0])
+            print(f"MSE loss = {mse_loss}, RRMSET Loss ={rmset_loss}, RRMSE_spec Loss = {rmsepsd_loss}, ACC = {acc}")
 
     def __train_on_epoch(self, model, noiseEEG, EEG, optimizer, writer, use_tensorboard = True):
         model.train()
@@ -92,10 +104,11 @@ class Trainer:
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
+                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 1)), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 1))
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
                     self.__weight_schedule(self.current_step)
-                    model(noiseEEG_batch, EEG_batch)
+                    model(noiseEEG_batch)
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch) / float(noiseEEG_batch.shape[0])
                     kl_loss = model.kl_loss
@@ -105,7 +118,6 @@ class Trainer:
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
                     loss = mse_loss + kl_weight * kl_loss + l2_weight * l2_loss
-
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
@@ -113,8 +125,8 @@ class Trainer:
                     torch.nn.utils.clip_grad_norm(model.parameters(), max_norm = model.max_norm)
                     optimizer.step()
                     model.fc_factors.weight.data = F.normalize(model.fc_factors.weight.data, dim=1)
-                    if use_tensorboard:
-                        self.__health_check(model, writer)
+                    # if use_tensorboard:
+                    #     self.__health_check(model, writer)
 
                     train_loss += loss.data / float(batch_num)
                     train_recon_loss += mse_loss.data / float(batch_num)
@@ -135,7 +147,7 @@ class Trainer:
                 # Calculate schedule weight
                 self.cost_weights[cost_key]['weight'] = min(weight_step/ self.cost_weights[cost_key]['schedule_dur'], 1.0)
 
-    def apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
+    def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:
                 if all((train_epoch_loss['epoch_train_loss'] > past_loss for past_loss in train_loss_store[-self.scheduler_patience:])):
                     if self.epoch >= self.last_decay_epoch + self.scheduler_cooldown:
@@ -158,8 +170,9 @@ class Trainer:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
+                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 1)), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 1))
                 with torch.no_grad():
-                    model(noiseEEG_batch, EEG_batch)
+                    model(noiseEEG_batch)
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch) / float(noiseEEG_batch.shape[0])
                     kl_loss = model.kl_loss
@@ -178,10 +191,11 @@ class Trainer:
                 "epoch_kl_loss": valid_kl_loss}
 
     def _set_params(self, params):
+        params = params.__dict__
         for k in params.keys():
             self.__setattr__(k, params[k])
 
-    def __save_checkpoint(self, model, optimizer, force = False, purge_limit = 50):
+    def __save_checkpoint(self, model, optimizer, force = False, purge_limit = 20):
         EXPERIMENT = f"{self.run_name}"
         model_path = f"../models/{EXPERIMENT}"
         if force:
@@ -194,7 +208,7 @@ class Trainer:
                     epochs = [attr[2] for attr in split_filenames]
                     epochs.sort()
                     last_saved_epoch = epochs[-1]
-                    if self.epoch - 50 <= int(last_saved_epoch):
+                    if self.epoch - 20 <= int(last_saved_epoch):
                         rm_filename = [filename for filename in filenames if last_saved_epoch in filename][0]
                         os.remove(model_path + rm_filename)
                 except IndexError:
@@ -202,7 +216,7 @@ class Trainer:
         
         timestamp = datetime.datetime.now().strftime('%y%m%d%H%M')
         epoch = str('%i'%self.epoch)
-        loss = str(self.valid_loss_store[-1]).replace('.','-')
+        loss = str(self.valid_loss_store[-1].item()).replace('.','-')
         output_filename = '%s_epoch_%s_loss_%s.pth'%(timestamp, epoch, loss)
         assert os.path.splitext(output_filename)[1] == '.pth', 'Output filename must have .pth extension'
 
@@ -211,11 +225,11 @@ class Trainer:
                     'full_loss_store' : self.full_loss_store,
                     'epochs' : self.epoch, 'current_step' : self.current_step,
                     'last_decay_epoch' : self.last_decay_epoch,
-                    'learning_rate' : self.learning_rate,
+                    'learning_rate' : self.lr,
                     'cost_weights' : self.cost_weights}
 
         torch.save({'net' : model.state_dict(), 'opt' : optimizer.state_dict(), 'train' : train_dict},
-                model_path+output_filename)
+                model_path+'/'+output_filename)
 
     def __health_check(self, model, writer):
         '''
@@ -258,6 +272,5 @@ class Trainer:
  
             ii+=1
         
-        writer.add_scalar('5_Activity_norms/1_efgen', self.efcon.data.norm(), self.current_step)
-        writer.add_scalar('5_Activity_norms/2_ebgen', self.ebcon.data.norm(), self.current_step)
-        return
+        writer.add_scalar('5_Activity_norms/1_efgen', model.efcon.data.norm(), self.current_step)
+        writer.add_scalar('5_Activity_norms/2_ebgen', model.ebcon.data.norm(), self.current_step)

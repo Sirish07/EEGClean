@@ -16,15 +16,7 @@ if __name__ == "__main__":
     EXPERIMENT = f"{cfg.run_name}"
     RESULTS = f"../results/{EXPERIMENT}"
     MODEL_PATH = f"../models/{EXPERIMENT}"
-    
-    make_folder(MODEL_PATH)
-    make_folder(RESULTS)
-
     os.environ['CUDA_VISIBLE_DEVICES']='0'
-    save_train = False
-    save_val = False
-    save_test = True
-
     ################################################# Loading Datasets ##################################################
     file_location = cfg.data
     if cfg.noise_type == 'EOG':
@@ -38,8 +30,12 @@ if __name__ == "__main__":
     
     model = LFADSNET(cfg)
     optimizer = make_optimizer(cfg, model)
-
     trainer = Trainer(cfg)
-    Trainer.train(model, noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, optimizer)
 
- 
+    if cfg.is_train=="True":
+        make_folder(MODEL_PATH)
+        make_folder(RESULTS)
+        trainer.train(model, noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, optimizer)
+    else: 
+        model, trainer, optimizer = load_checkpoint(MODEL_PATH, model, trainer, optimizer)
+    trainer.test(model, noiseEEG_test, EEG_test)

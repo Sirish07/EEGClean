@@ -34,7 +34,7 @@ class LFADSNET(nn.Module):
         self.gru_Econ_forward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.c_encoder_dim)
 
         # Controller Backward encoder
-        self.gru_Econ_backward = nn.GRUCell(input_size = self.inputs_dim, hidden = self.c_encoder_dim)
+        self.gru_Econ_backward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.c_encoder_dim)
 
         # Controller
         self.gru_controller = nn.GRUCell(input_size = self.c_encoder_dim * 2 + self.factors_dim, hidden_size = self.controller_dim)
@@ -54,35 +54,36 @@ class LFADSNET(nn.Module):
 
         self.recon_fc1 = nn.Linear(in_features = self.factors_dim, out_features = self.inputs_dim)
         self.recon_fc2 = nn.Linear(in_features = self.inputs_dim, out_features = self.inputs_dim)
-        self.recon_fc3 = nn.Linear(in_features = self.inputs_dim, out_features = self.inputs_dim) 
+        self.recon_fc3 = nn.Linear(in_features = self.factors_dim, out_features = self.inputs_dim) 
 
         """ Dropout Layer """
         self.dropout = nn.Dropout(1.0 - self.keep_prob)
 
-        for m in self.modules():
+        for idx, m in self.named_modules():
             if isinstance(m, nn.GRUCell):
                 k_ih = m.weight_ih.shape[1]
                 k_hh = m.weight_hh.shape[1]
-                m.weight_ih.data.normaL_(std = k_ih ** -0.5)
+                m.weight_ih.data.normal_(std = k_ih ** -0.5)
                 m.weight_hh.data.normal_(std = k_hh ** -0.5)
 
             elif isinstance(m, nn.Linear):
-                k = m.in_features
-                m.weight.data.normal_(sed = k ** -0.5)
+                if idx != "recon_fc1" and idx != "recon_fc2" and idx != "recon_fc3":
+                    k = m.in_features
+                    m.weight.data.normal_(std = k ** -0.5)
 
         self.fc_factors.weight.data = F.normalize(self.fc_factors.weight.data, dim = 1)
         self.g0_prior_mu = nn.parameter.Parameter(torch.tensor(0.0))
         self.u_prior_mu  = nn.parameter.Parameter(torch.tensor(0.0))
 
         from math import log
-        self.g0_prior_logkappa = nn.parameter.Parameter(torch.tensor(log(self.g0_prior_kappa)))
+        self.g0_prior_logkappa = nn.parameter.Parameter(torch.tensor(log(self.g0_prior_logkappa)))
         self.u_prior_logkappa = nn.parameter.Parameter(torch.tensor(log(self.u_prior_logkappa)))
 
     def initialize(self, batch_size = None):
 
         batch_size = batch_size if batch_size is not None else self.batch_size
 
-        self.g0_prior_mean = torch.ones(batch_size, self.g0_dim).to(self.device) * self.g0_prior_mu
+        self.g0_prior_mean = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_mu
         self.u_prior_mean = torch.ones(batch_size, self.u_dim).to(self.device) * self.u_prior_mu
 
         self.g0_prior_logvar = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_logkappa
@@ -133,7 +134,7 @@ class LFADSNET(nn.Module):
         self.f = self.fc_factors(self.g)
 
     
-    def generate(self, x, y):
+    def generate(self, x):
         """ Generator Layer """
 
         for t in range(self.T):
@@ -141,7 +142,7 @@ class LFADSNET(nn.Module):
             econ_and_fac = torch.cat((self.efcon[:, t + 1].clone(), self.ebcon[:, t].clone(), self.f), dim  = 1)
 
             if self.keep_prob < 1.0:
-                econ_and_fac = self.droput(econ_and_fac)
+                econ_and_fac = self.dropout(econ_and_fac)
             
             self.c = torch.clamp(self.gru_controller(econ_and_fac, self.c), min = 0.0, max = self.clip_val)
 
@@ -160,24 +161,24 @@ class LFADSNET(nn.Module):
             
             self.f = self.fc_factors(self.g)
 
-            out = F.relu(self.recon_fc1(self.f))
-            if self.keep_prob < 1.0:
-                out = self.dropout(out)
+            # out = F.relu(self.recon_fc1(self.f))
+            # if self.keep_prob < 1.0:
+            #     out = self.dropout(out)
             
-            out = F.relu(self.recon_fc2(out))
-            if self.keep_prob < 1.0:
-                out = self.dropout(out)
+            # out = F.relu(self.recon_fc2(out))
+            # if self.keep_prob < 1.0:
+            #     out = self.dropout(out)
 
-            self.output = self.recon_fc3(out)
+            self.output = self.recon_fc3(self.f)
 
             if self.save_variables:
-                self.factors[:, t] = self.f.detach().cpu()
-                self.inputs[:, t] = self.u.detach().cpu()
-                self.inputs_mean[:, t] = self.u_mean.detach().cpu()
-                self.inputs_logvar[:, t] = self.u_logvar.detach().cpu()
-                self.predicted[:, t] = self.output.detach().cpu()
+                self.factors[:, t] = self.f
+                self.inputs[:, t] = self.u
+                self.inputs_mean[:, t] = self.u_mean
+                self.inputs_logvar[:, t] = self.u_logvar
+                self.predicted[:, t] = self.output
 
-    def forward(self, x, y):
+    def forward(self, x):
 
         batch_size, steps_dim, inputs_dim = x.shape
         assert steps_dim == self.T
@@ -186,9 +187,10 @@ class LFADSNET(nn.Module):
         self.batch_size = batch_size
         self.initialize(batch_size = batch_size)
         self.encode(x)
-        self.generate(x, y)
+        self.generate(x)
     
     def _set_params(self, params):
+        params = params.__dict__
         for k in params.keys():
             self.__setattr__(k, params[k])
     

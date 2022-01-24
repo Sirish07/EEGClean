@@ -2,7 +2,6 @@ import argparse
 import numpy as np 
 import torch
 import torch.nn.functional as F
-import math
 
 def parse_arguments():
     """Parsing input arguments"""
@@ -13,6 +12,11 @@ def parse_arguments():
     parser.add_argument(
         "--run_name", default = "temp",
         help="name for experiment run"
+    )
+
+    parser.add_argument(
+        "--is_train", default="True",
+        help="If true, then train"
     )
 
     parser.add_argument(
@@ -73,7 +77,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--keep_prob", default=1.0,
+        "--keep_prob", default=0.97,
         help="keep probability for drop-out layers, if < 1 "
     )
 
@@ -135,7 +139,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--kl_weight_schedule_dur", default=2000, 
+        "--kl_weight_schedule_dur", default=10000, 
         help="number of optimisation steps to increase kl_weight to 1.0"
     )
 
@@ -144,8 +148,8 @@ def parse_arguments():
         help="optimisation step to start l2_weight increase"
     )
 
-    parser.add_argyment(
-        "--l2_weight_schedule_dur", default=2000,
+    parser.add_argument(
+        "--l2_weight_schedule_dur", default=10000,
         help="number of optimisation steps to increase l2_weight to 1.0"
     )
 
@@ -160,7 +164,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--device", default='cpu',
+        "--device", default='cuda' if torch.cuda.is_available() else 'cpu',
         help="device to use"
     )
 
@@ -193,10 +197,10 @@ def parse_arguments():
         "--noise_type", default="EOG",
         help="Noise type to be mixed"
     )
+    return parser
 
 def get_arguments():
-    cfg = parse_arguments()
-    for k in sorted(cfg.keys()):
-        print(f"{k} = {cfg[k]}")
+    cfg = parse_arguments().parse_known_args()[0]
+    for i, ii in cfg.__dict__.items():
+        print(i, ii)
     return cfg
-
