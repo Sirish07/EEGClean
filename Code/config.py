@@ -94,7 +94,7 @@ def parse_arguments():
     # optimizer hyperparameters
 
     parser.add_argument(
-        "--lr", default=0.01,
+        "--lr", default=0.3,
         help="learning rate for ADAM optimizer"
     )
 

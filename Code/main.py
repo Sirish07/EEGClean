@@ -37,5 +37,8 @@ if __name__ == "__main__":
         make_folder(RESULTS)
         trainer.train(model, noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, optimizer)
     else: 
+        print("===========================================")
+        print("Retrieving best model")
+        print("===========================================")
         model, trainer, optimizer = load_checkpoint(MODEL_PATH, model, trainer, optimizer)
     trainer.test(model, noiseEEG_test, EEG_test)

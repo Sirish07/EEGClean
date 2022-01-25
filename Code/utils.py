@@ -43,9 +43,11 @@ def load_checkpoint(model_path, model, trainer, optimizer, input_filename='best'
             
                 # Sort in ascending order
                 filenames.sort()
-
+                split_filenames = []
                 # Split filenames into attributes (dates, epochs, loss)
-                split_filenames = [os.path.splitext(fn)[0].split('_') for fn in filenames]
+                for fn in filenames:
+                    if fn.endswith('.pth'):
+                        split_filenames.append(os.path.splitext(fn)[0].split('_'))
                 dates = [att[0] for att in split_filenames]
                 epoch = [att[2] for att in split_filenames]
                 loss  = [att[-1] for att in split_filenames]

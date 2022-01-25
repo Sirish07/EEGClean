@@ -54,7 +54,7 @@ class LFADSNET(nn.Module):
 
         self.recon_fc1 = nn.Linear(in_features = self.factors_dim, out_features = self.inputs_dim)
         self.recon_fc2 = nn.Linear(in_features = self.inputs_dim, out_features = self.inputs_dim)
-        self.recon_fc3 = nn.Linear(in_features = self.factors_dim, out_features = self.inputs_dim) 
+        self.recon_fc3 = nn.Linear(in_features = self.inputs_dim, out_features = self.inputs_dim) 
 
         """ Dropout Layer """
         self.dropout = nn.Dropout(1.0 - self.keep_prob)
@@ -161,15 +161,15 @@ class LFADSNET(nn.Module):
             
             self.f = self.fc_factors(self.g)
 
-            # out = F.relu(self.recon_fc1(self.f))
-            # if self.keep_prob < 1.0:
-            #     out = self.dropout(out)
+            out = F.relu(self.recon_fc1(self.f))
+            if self.keep_prob < 1.0:
+                out = self.dropout(out)
             
-            # out = F.relu(self.recon_fc2(out))
-            # if self.keep_prob < 1.0:
-            #     out = self.dropout(out)
+            out = self.recon_fc2(out)
+            if self.keep_prob < 1.0:
+                out = self.dropout(out)
 
-            self.output = self.recon_fc3(self.f)
+            self.output = self.recon_fc3(out)
 
             if self.save_variables:
                 self.factors[:, t] = self.f

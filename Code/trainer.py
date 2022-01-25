@@ -82,10 +82,13 @@ class Trainer:
             noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 1)), torch.FloatTensor(np.expand_dims(EEG, axis = 1))
             model(noiseEEG)
             denoiseout = model.predicted
-            mse_loss = denoise_loss_mse(denoiseout, EEG) / float(noiseEEG.shape[0])
-            rmset_loss = denoise_loss_rrmset(denoiseout, EEG) / float(noiseEEG.shape[0])
-            rmsepsd_loss = denoise_loss_rrmsepsd(denoiseout, EEG) / float(noiseEEG.shape[0])
-            acc = average_correlation_coefficient(denoiseout, EEG) / float(noiseEEG.shape[0])
+            print("Checking Distributions")
+            print(EEG.min(), EEG.max(), torch.mean(EEG), torch.std(EEG))
+            print(denoiseout.min(), denoiseout.max(), torch.mean(denoiseout), torch.std(denoiseout))
+            mse_loss = denoise_loss_mse(denoiseout, EEG)
+            rmset_loss = denoise_loss_rrmset(denoiseout, EEG)
+            rmsepsd_loss = denoise_loss_rrmsepsd(denoiseout, EEG)
+            acc = average_correlation_coefficient(denoiseout, EEG)
             print(f"MSE loss = {mse_loss}, RRMSET Loss ={rmset_loss}, RRMSE_spec Loss = {rmsepsd_loss}, ACC = {acc}")
 
     def __train_on_epoch(self, model, noiseEEG, EEG, optimizer, writer, use_tensorboard = True):
@@ -107,17 +110,17 @@ class Trainer:
                 noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 1)), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 1))
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
-                    self.__weight_schedule(self.current_step)
+                    # self.__weight_schedule(self.current_step)
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
-                    mse_loss = denoise_loss_mse(denoiseout, EEG_batch) / float(noiseEEG_batch.shape[0])
+                    mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
                     l2_loss = model.l2_gen_scale * model.gru_generator.weight_hh.norm(2)/model.gru_generator.weight_hh.numel() + \
                           model.l2_con_scale * model.gru_controller.weight_hh.norm(2)/model.gru_controller.weight_hh.numel()
                         
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
-                    loss = mse_loss + kl_weight * kl_loss + l2_weight * l2_loss
+                    loss = mse_loss #+ kl_weight * kl_loss + l2_weight * l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
@@ -174,9 +177,12 @@ class Trainer:
                 with torch.no_grad():
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
-                    mse_loss = denoise_loss_mse(denoiseout, EEG_batch) / float(noiseEEG_batch.shape[0])
+                    mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
+                    print("Checking Distributions")
+                    print(EEG_batch.min(), EEG_batch.max(), torch.mean(EEG_batch), torch.std(EEG_batch))
+                    print(denoiseout.min(), denoiseout.max(), torch.mean(denoiseout), torch.std(denoiseout))
                     kl_loss = model.kl_loss
-                    loss = mse_loss + kl_loss + l2_loss
+                    loss = mse_loss #+ kl_loss + l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     valid_loss += loss.data / float(batch_num)

@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
+import math
 
 ################################# loss functions ##########################################################
 
@@ -22,19 +24,27 @@ def denoise_loss_rrmset(denoise, clean):      #tmse
   return rmse1/rmse2
 
 def denoise_loss_rrmsepsd(denoise, clean):
-
-  psd1,_,_ = plt.psd(denoise, Fs = 256)
-  psd2,_,_ = plt.psd(clean, Fs = 256)
-  rmse1 = denoise_loss_rmse(psd1, psd2)
-  rmse2 = denoise_loss_rmse(psd2, torch.zeros(psd2.shape))
-  return rmse1 / rmse2
+  denoise, clean = torch.squeeze(denoise), torch.squeeze(clean)
+  result = []
+  for len in range(denoise.shape[0]):
+    psd1,_ = plt.psd(denoise[len, :], Fs = 256)
+    psd2,_ = plt.psd(clean[len, :], Fs = 256)
+    psd1, psd2 = torch.Tensor(psd1), torch.Tensor(psd2)
+    rmse1 = denoise_loss_rmse(psd1, psd2)
+    rmse2 = denoise_loss_rmse(psd2, torch.zeros(psd2.shape))
+    result.append(rmse1/ rmse2)
+  return np.mean(result)
 
 def average_correlation_coefficient(denoise, clean):
-  denoise = pd.series(denoise)
-  clean = pd.series(clean)
-  covar = denoise.cov(clean)
-  var_prod = torch.sqrt(denoise.var() * clean.var())
-  return covar / var_prod
+  denoise, clean = torch.squeeze(denoise), torch.squeeze(clean)
+  result = []
+  for len in range(denoise.shape[0]):
+    temp1 = pd.Series(denoise[len, :])
+    temp2 = pd.Series(clean[len, :])
+    covar = temp1.cov(temp2)
+    var_prod = math.sqrt(temp1.var() * temp2.var())
+    result.append(covar / var_prod)  
+  return np.mean(result) 
   
 def KLCostGaussian(post_mu, post_lv, prior_mu, prior_lv):
     '''
