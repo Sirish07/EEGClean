@@ -25,7 +25,7 @@ if __name__ == "__main__":
         EEG_all = np.load( file_location + 'EEG_all_epochs_512hz.npy')                              
         noise_all = np.load( file_location + 'EMG_all_epochs_512hz.npy')
     
-    print(cfg.epochs, cfg.batch_size, cfg.combin_num, cfg.denoise_network, cfg.noise_type)
+    print(cfg.maxepochs, cfg.batch_size, cfg.combin_num, cfg.model_name, cfg.noise_type)
     noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, noiseEEG_test, EEG_test, test_std_VALUE = prepare_data(EEG_all = EEG_all, noise_all = noise_all, combin_num = 10, train_per = 0.8, noise_type = cfg.noise_type)
     
     if cfg.model_name == "FcNN":
