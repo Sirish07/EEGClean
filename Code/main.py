@@ -1,7 +1,6 @@
 import numpy as np
-from lfads import LFADSNET
 from data_prepare import *
-from loss_function import *
+from baselines import *
 from trainer import *
 from utils import *
 import config
@@ -27,9 +26,13 @@ if __name__ == "__main__":
         noise_all = np.load( file_location + 'EMG_all_epochs_512hz.npy')
     noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, noiseEEG_test, EEG_test, test_std_VALUE = prepare_data(EEG_all = EEG_all, noise_all = noise_all, combin_num = 10, train_per = 0.8, noise_type = cfg.noise_type)
     
-    
-    model = LFADSNET(cfg)
-    optimizer = make_optimizer(cfg, model)
+    if cfg.model_name == "FcNN":
+        model = FcNN(cfg)
+        model.apply(init_weights)
+    elif cfg.model_name == "LSTM_FFN":
+        model = LSTM_FFN(cfg)
+
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=cfg.lr)
     trainer = Trainer(cfg)
 
     if cfg.is_train=="True":

@@ -15,6 +15,11 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--model_name", default = "FcNN",
+        help="name for experiment run"
+    ) 
+
+    parser.add_argument(
         "--is_train", default="True",
         help="If true, then train"
     )
@@ -27,7 +32,7 @@ def parse_arguments():
     # Input config
     parser.add_argument(
         "--inputs_dim", default=512,
-        help="he dimensionality of the data (e.g. number of cells)"
+        help="the dimensionality of the data (e.g. number of cells)"
     )
 
     parser.add_argument(
@@ -94,17 +99,17 @@ def parse_arguments():
     # optimizer hyperparameters
 
     parser.add_argument(
-        "--lr", default=0.3,
+        "--lr", default=0.00005,
         help="learning rate for ADAM optimizer"
     )
 
     parser.add_argument(
-        "--eps", default=0.1,
+        "--eps", default=1e-08,
         help="epsilon value for ADAM optimizer"
     )
 
     parser.add_argument(
-        "--betas", default=(0.9,0.999),
+        "--betas", default=(0.5,0.9),
         help="beta values for ADAM optimizer"
     )
 

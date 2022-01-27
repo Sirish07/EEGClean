@@ -3,6 +3,7 @@ import shutil
 import torch.optim as opt
 import logging
 import torch
+import torch.nn as nn
 import datetime
 from tensorboardX import SummaryWriter
 
@@ -19,6 +20,11 @@ def create_summary_writer(run_name):
     writer = SummaryWriter(MODEL_PATH)
     print("Create tensorboard logger")
     return writer
+
+def init_weights(m):
+        if isinstance(m, nn.Linear):
+            torch.nn.init.xavier_uniform(m.weight)
+            m.bias.data.fill_(0)
 
 def load_checkpoint(model_path, model, trainer, optimizer, input_filename='best', output='.'):
         '''
