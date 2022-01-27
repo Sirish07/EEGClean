@@ -11,7 +11,6 @@ class Trainer:
     def __init__(self, cfg):
         self._set_params(cfg)
         self.last_decay_epoch = 0
-        self.current_step = 0
         self.best = np.inf
         self.train_loss_store = []
         self.valid_loss_store = []
@@ -74,13 +73,12 @@ class Trainer:
         train_loss = 0
         with tqdm(total=batch_num, position=0, leave=True) as pbar:
             for n_batch in range(batch_num):
-                self.current_step += 1
                 if n_batch == batch_num:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 1)), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 1))
+                noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
                     model(noiseEEG_batch)
@@ -91,9 +89,6 @@ class Trainer:
 
                     loss.backward()
                     optimizer.step()
-                    # if use_tensorboard:
-                    #     self.__health_check(model, writer)
-
                     train_loss += loss.data / float(batch_num)
 
                     pbar.update()
@@ -101,23 +96,6 @@ class Trainer:
         end = time.time()
         print(f"Train loss: {train_loss}, time = {end-start}/per epoch")
         return {"epoch_train_loss": train_loss}
-
-    def __weight_schedule(self, current_step):
-        for cost_key in self.cost_weights.keys():
-                # Get step number of scheduler
-                weight_step = max(current_step - self.cost_weights[cost_key]['schedule_start'], 0)
-                # Calculate schedule weight
-                self.cost_weights[cost_key]['weight'] = min(weight_step/ self.cost_weights[cost_key]['schedule_dur'], 1.0)
-
-    def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
-        if len(train_loss_store) >= self.scheduler_patience:
-                if all((train_epoch_loss['epoch_train_loss'] > past_loss for past_loss in train_loss_store[-self.scheduler_patience:])):
-                    if self.epoch >= self.last_decay_epoch + self.scheduler_cooldown:
-                        self.learning_rate  = self.learning_rate * self.learning_rate_decay
-                        self.last_decay_epoch = self.epoch
-                        for g in optimizer.param_groups:
-                            g['lr'] = self.learning_rate
-                        print('Learning rate decreased to %.8f'%self.learning_rate)
     
     def __val_on_epoch(self, model, noiseEEG, EEG):
         model.eval()
@@ -130,7 +108,7 @@ class Trainer:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 1)), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 1))
+                noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
                 with torch.no_grad():
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
@@ -181,53 +159,9 @@ class Trainer:
         train_dict = {'best' : self.best, 'train_loss_store': self.train_loss_store,
                     'valid_loss_store' : self.valid_loss_store,
                     'full_loss_store' : self.full_loss_store,
-                    'epochs' : self.epoch, 'current_step' : self.current_step,
+                    'epochs' : self.epoch,
                     'last_decay_epoch' : self.last_decay_epoch,
                     'learning_rate' : self.lr}
 
         torch.save({'net' : model.state_dict(), 'opt' : optimizer.state_dict(), 'train' : train_dict},
                 model_path+'/'+output_filename)
-
-    def __health_check(self, model, writer):
-        '''
-        Checks the gradient norms for each parameter, what the maximum weight is in each weight matrix,
-        and whether any weights have reached nan
-        
-        Report norm of each weight matrix
-        Report norm of each layer activity
-        Report norm of each Jacobian
-        
-        To report by batch. Look at data that is inducing the blow-ups.
-        
-        Create a -Nan report. What went wrong? Create file that shows data that preceded blow up, 
-        and norm changes over epochs
-        
-        Theory 1: sparse activity in real data too difficult to encode
-            - maybe, but not fixed by augmentation
-            
-        Theory 2: Edgeworth approximation ruining everything
-            - probably: when switching to order=2 loss does not blow up, but validation error is huge
-        '''
-        
-        hc_results = {'Weights' : {}, 'Gradients' : {}, 'Activity' : {}}
-        odict = model._modules
-        ii=1
-        for name in odict.keys():
-            if 'gru' in name:
-                writer.add_scalar('3_Weight_norms/%ia_%s_ih'%(ii, name), odict.get(name).weight_ih.data.norm(), self.current_step)
-                writer.add_scalar('3_Weight_norms/%ib_%s_hh'%(ii, name), odict.get(name).weight_hh.data.norm(), self.current_step)
-                
-                if self.current_step > 1:
-
-                    writer.add_scalar('4_Gradient_norms/%ia_%s_ih'%(ii, name), odict.get(name).weight_ih.grad.data.norm(), self.current_step)
-                    writer.add_scalar('4_Gradient_norms/%ib_%s_hh'%(ii, name), odict.get(name).weight_hh.grad.data.norm(), self.current_step)
-            
-            elif 'fc' in name or 'conv' in name:
-                writer.add_scalar('3_Weight_norms/%i_%s'%(ii, name), odict.get(name).weight.data.norm(), self.current_step)
-                if self.current_step > 1:
-                    writer.add_scalar('4_Gradient_norms/%i_%s'%(ii, name), odict.get(name).weight.grad.data.norm(), self.current_step)
- 
-            ii+=1
-        
-        writer.add_scalar('5_Activity_norms/1_efgen', model.efcon.data.norm(), self.current_step)
-        writer.add_scalar('5_Activity_norms/2_ebgen', model.ebcon.data.norm(), self.current_step)
