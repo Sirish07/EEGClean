@@ -21,9 +21,10 @@ class Trainer:
         print("=============Training Start================")
         use_tensorboard = True
         writer = create_summary_writer(self.run_name)
+        current_step = 0
         for self.epoch in range(self.maxepochs):
-            print(f"Epoch: {self.epoch}")
-            train_loss = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
+            print("-" * 50 + str(self.epoch) + "-" * 50)
+            train_loss, current_step = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer, current_step)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val)
 
             self.train_loss_store.append(train_loss['epoch_train_loss'])
@@ -56,23 +57,23 @@ class Trainer:
             noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 1)), torch.FloatTensor(np.expand_dims(EEG, axis = 1))
             model(noiseEEG)
             denoiseout = model.predicted
-            print("Checking Distributions")
-            print(EEG.min(), EEG.max(), torch.mean(EEG), torch.std(EEG))
-            print(denoiseout.min(), denoiseout.max(), torch.mean(denoiseout), torch.std(denoiseout))
             mse_loss = denoise_loss_mse(denoiseout, EEG)
             rmset_loss = denoise_loss_rrmset(denoiseout, EEG)
             rmsepsd_loss = denoise_loss_rrmsepsd(denoiseout, EEG)
             acc = average_correlation_coefficient(denoiseout, EEG)
             print(f"MSE loss = {mse_loss}, RRMSET Loss ={rmset_loss}, RRMSE_spec Loss = {rmsepsd_loss}, ACC = {acc}")
 
-    def __train_on_epoch(self, model, noiseEEG, EEG, optimizer):
+    def __train_on_epoch(self, model, noiseEEG, EEG, optimizer, current_step):
         model.train()
         start = time.time()
         batch_size = self.batch_size
         batch_num = math.ceil(noiseEEG.shape[0]/batch_size)
+        print(noiseEEG.shape, batch_num)
         train_loss = 0
         with tqdm(total=batch_num, position=0, leave=True) as pbar:
             for n_batch in range(batch_num):
+
+                current_step += 1
                 if n_batch == batch_num:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
@@ -86,7 +87,6 @@ class Trainer:
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     loss = mse_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
-
                     loss.backward()
                     optimizer.step()
                     train_loss += loss.data / float(batch_num)
@@ -95,7 +95,7 @@ class Trainer:
             pbar.close()
         end = time.time()
         print(f"Train loss: {train_loss}, time = {end-start}/per epoch")
-        return {"epoch_train_loss": train_loss}
+        return {"epoch_train_loss": train_loss}, current_step
     
     def __val_on_epoch(self, model, noiseEEG, EEG):
         model.eval()
@@ -113,9 +113,6 @@ class Trainer:
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
-                    print("Checking Distributions")
-                    print(EEG_batch.min(), EEG_batch.max(), torch.mean(EEG_batch), torch.std(EEG_batch))
-                    print(denoiseout.min(), denoiseout.max(), torch.mean(denoiseout), torch.std(denoiseout))
                     loss = mse_loss 
                     assert not torch.isnan(loss.data), "Loss is NaN"
 

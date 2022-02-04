@@ -3,6 +3,7 @@ import shutil
 import torch.optim as opt
 import logging
 import torch
+torch.manual_seed(25)
 import torch.nn as nn
 import datetime
 from tensorboardX import SummaryWriter

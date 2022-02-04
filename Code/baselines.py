@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+torch.manual_seed(25)
 
 class FcNN(nn.Module):
     def __init__(self, cfg):
@@ -11,17 +11,13 @@ class FcNN(nn.Module):
         self.fc2 = nn.Linear(self.inputs_dim, self.inputs_dim)
         self.fc3 = nn.Linear(self.inputs_dim, self.inputs_dim)
         self.fc4 = nn.Linear(self.inputs_dim, self.inputs_dim)
-        self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
         hf = F.relu(self.fc1(x))
-        hf = self.dropout(hf)
 
         hf = F.relu(self.fc2(hf))
-        hf = self.dropout(hf)
 
         hf = F.relu(self.fc3(hf))
-        hf = self.dropout(hf)
 
         self.predicted = self.fc4(hf)
     
