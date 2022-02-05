@@ -34,9 +34,9 @@ if __name__ == "__main__":
     elif cfg.model_name == "LSTM_FFN":
         model = LSTM_FFN(cfg)
 
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=cfg.lr, alpha=0.9)
+    optimizer = torch.optim.Adam(model.parameters(), lr = cfg.lr, betas = cfg.betas, eps = cfg.eps)
     trainer = Trainer(cfg)
-
+    print(model)
     if cfg.is_train=="True":
         make_folder(MODEL_PATH)
         make_folder(RESULTS)

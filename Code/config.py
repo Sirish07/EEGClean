@@ -99,7 +99,7 @@ def parse_arguments():
     # optimizer hyperparameters
 
     parser.add_argument(
-        "--lr", default=0.00005,
+        "--lr", default=0.001,
         help="learning rate for ADAM optimizer"
     )
 
@@ -109,7 +109,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--betas", default=(0.5,0.9),
+        "--betas", default=(0.9,0.999),
         help="beta values for ADAM optimizer"
     )
 

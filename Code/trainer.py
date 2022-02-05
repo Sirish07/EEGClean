@@ -68,18 +68,22 @@ class Trainer:
         start = time.time()
         batch_size = self.batch_size
         batch_num = math.ceil(noiseEEG.shape[0]/batch_size)
+        datanum = noiseEEG.shape[1]
         print(noiseEEG.shape, batch_num)
         train_loss = 0
         with tqdm(total=batch_num, position=0, leave=True) as pbar:
             for n_batch in range(batch_num):
-
                 current_step += 1
                 if n_batch == batch_num:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
+                if self.model_name == "LSTM_FFN":
+                    noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, 1, datanum)), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, 1, datanum))
+                else:
+                    noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
+
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
                     model(noiseEEG_batch)
@@ -101,6 +105,7 @@ class Trainer:
         model.eval()
         batch_size = self.batch_size
         batch_num = math.ceil(noiseEEG.shape[0]/batch_size)
+        datanum = noiseEEG.shape[1]
         valid_loss = 0
         with tqdm(total=batch_num, position=0, leave=True) as pbar:
             for n_batch in range(batch_num):
@@ -108,16 +113,17 @@ class Trainer:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
+                if self.model_name == "LSTM_FFN":
+                    noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, 1, datanum)), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, 1, datanum))
+                else:
+                    noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
                 with torch.no_grad():
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     loss = mse_loss 
                     assert not torch.isnan(loss.data), "Loss is NaN"
-
                     valid_loss += loss.data / float(batch_num)
-
                     pbar.update()
             pbar.close()
         print(f"Validation loss: {valid_loss}")

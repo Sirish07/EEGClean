@@ -34,16 +34,12 @@ class LSTM_FFN(nn.Module):
         self.fc1 = nn.Linear(1, self.inputs_dim)
         self.fc2 = nn.Linear(self.inputs_dim, self.inputs_dim)
         self.fc3 = nn.Linear(self.inputs_dim, self.inputs_dim)
-        self.dropout = nn.Dropout(0.3)
+
     
     def forward(self, x):
         output, (hidden, cell) = self.lstm(x)
         output = F.relu(self.fc1(output))
-        output = self.dropout(output)
-
         output = F.relu(self.fc2(output))
-        output = self.dropout(output)
-
         output = self.fc3(output)
         self.predicted = output
 
