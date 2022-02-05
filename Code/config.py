@@ -37,7 +37,7 @@ def parse_arguments():
 
     # model hyperparameters
     parser.add_argument(
-        "--g_dim", default=100,
+        "--g_dim", default=128,
         help="dimensionality of the generator"
     )
 
@@ -47,22 +47,22 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--factors_dim", default=20,
+        "--factors_dim", default=32,
         help="dimensionality of the latent factors"
     )
 
     parser.add_argument(
-        "--g0_encoder_dim", default=100,
+        "--g0_encoder_dim", default=128,
         help="dimensionality of the encoder for the initial conditions for the generator"
     )
 
     parser.add_argument(
-        "--c_encoder_dim", default=100,
+        "--c_encoder_dim", default=128,
         help="dimensionality of the encoder for the controller"
     )
 
     parser.add_argument(
-        "--controller_dim", default=100,
+        "--controller_dim", default=128,
         help="dimensionality of the controller"
     )
 
@@ -77,7 +77,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--keep_prob", default=0.97,
+        "--keep_prob", default=1.0,
         help="keep probability for drop-out layers, if < 1 "
     )
 
@@ -87,14 +87,14 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--max_norm", default=200.0,
+        "--max_norm", default=10.0,
         help="maximum gradient norm"
     )
 
     # optimizer hyperparameters
 
     parser.add_argument(
-        "--lr", default=0.3,
+        "--lr", default=0.01,
         help="learning rate for ADAM optimizer"
     )
 
@@ -134,22 +134,22 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--kl_weight_schedule_start", default=0,
+        "--kl_weight_schedule_start", default=10000,
         help="optimisation step to start kl_weight increase"
     )
 
     parser.add_argument(
-        "--kl_weight_schedule_dur", default=10000, 
+        "--kl_weight_schedule_dur", default=20000, 
         help="number of optimisation steps to increase kl_weight to 1.0"
     )
 
     parser.add_argument(
-        "--l2_weight_schedule_start", default=0,
+        "--l2_weight_schedule_start", default=10000,
         help="optimisation step to start l2_weight increase"
     )
 
     parser.add_argument(
-        "--l2_weight_schedule_dur", default=10000,
+        "--l2_weight_schedule_dur", default=20000,
         help="number of optimisation steps to increase l2_weight to 1.0"
     )
 

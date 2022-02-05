@@ -67,11 +67,9 @@ class LFADSNET(nn.Module):
                 m.weight_hh.data.normal_(std = k_hh ** -0.5)
 
             elif isinstance(m, nn.Linear):
-                if idx != "recon_fc1" and idx != "recon_fc2" and idx != "recon_fc3":
                     k = m.in_features
                     m.weight.data.normal_(std = k ** -0.5)
 
-        self.fc_factors.weight.data = F.normalize(self.fc_factors.weight.data, dim = 1)
         self.g0_prior_mu = nn.parameter.Parameter(torch.tensor(0.0))
         self.u_prior_mu  = nn.parameter.Parameter(torch.tensor(0.0))
 
@@ -116,16 +114,16 @@ class LFADSNET(nn.Module):
             self.efgen = torch.clamp(self.gru_Egen_forward(x[:, t - 1], self.efgen), max = self.clip_val)
             self.ebgen = torch.clamp(self.gru_Egen_backward(x[:, -t], self.ebgen), max = self.clip_val)
 
-            self.efcon[:, t] = torch.clamp(self.gru_Econ_forward(x[:, t - 1], self.efcon[:, t - 1].clone()), max = self.clip_val)
-            self.ebcon[:, -(t + 1)] = torch.clamp(self.gru_Econ_backward(x[:, -t], self.ebcon[:, -t].clone()), max = self.clip_val)
-        
+            self.efcon[:, t]      = torch.clamp(self.gru_Econ_forward(x[:, t-1], self.efcon[:, t-1].clone()),max=self.clip_val)
+            self.ebcon[:, -(t+1)] = torch.clamp(self.gru_Econ_backward(x[:, -t], self.ebcon[:, -t].clone()),max=self.clip_val)
+
         egen = torch.cat((self.efgen, self.ebgen), dim = 1)
 
         if self.keep_prob < 1.0:
             egen = self.dropout(egen)
         
         self.g0_mean = self.fc_g0mean(egen)
-        self.g0_logvar = torch.clamp(self.fc_g0logvar(egen), min = np.log(0.001))
+        self.g0_logvar = torch.clamp(self.fc_g0logvar(egen), min = np.log(0.0001))
         self.g = Variable(torch.randn(self.batch_size, self.g_dim).to(self.device)) * torch.exp(0.5 * self.g0_logvar) + self.g0_mean
         
         self.kl_loss   = KLCostGaussian(self.g0_mean, self.g0_logvar,
