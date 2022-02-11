@@ -70,6 +70,7 @@ class LFADSNET(nn.Module):
                     k = m.in_features
                     m.weight.data.normal_(std = k ** -0.5)
 
+        self.fc_factors.weight.data = F.normalize(self.fc_factors.weight.data, dim = 1)
         self.g0_prior_mu = nn.parameter.Parameter(torch.tensor(0.0))
         self.u_prior_mu  = nn.parameter.Parameter(torch.tensor(0.0))
 
@@ -88,6 +89,8 @@ class LFADSNET(nn.Module):
         self.u_prior_logvar = torch.ones(batch_size, self.u_dim).to(self.device) * self.u_prior_logkappa
 
         self.c = Variable(torch.zeros((batch_size, self.controller_dim)).to(self.device))
+
+        self.f = Variable(torch.zeros((batch_size, self.factors_dim)).to(self.device))
 
         self.efgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
         self.ebgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
@@ -128,9 +131,7 @@ class LFADSNET(nn.Module):
         
         self.kl_loss   = KLCostGaussian(self.g0_mean, self.g0_logvar,
                                         self.g0_prior_mean, self.g0_prior_logvar)/x.shape[0]
-
         self.f = self.fc_factors(self.g)
-
     
     def generate(self, x):
         """ Generator Layer """

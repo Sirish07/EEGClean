@@ -134,32 +134,32 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--kl_weight_schedule_start", default=10000,
+        "--kl_weight_schedule_start", default=0,
         help="optimisation step to start kl_weight increase"
     )
 
     parser.add_argument(
-        "--kl_weight_schedule_dur", default=20000, 
+        "--kl_weight_schedule_dur", default=2000, 
         help="number of optimisation steps to increase kl_weight to 1.0"
     )
 
     parser.add_argument(
-        "--l2_weight_schedule_start", default=10000,
+        "--l2_weight_schedule_start", default=0,
         help="optimisation step to start l2_weight increase"
     )
 
     parser.add_argument(
-        "--l2_weight_schedule_dur", default=20000,
+        "--l2_weight_schedule_dur", default=2000,
         help="number of optimisation steps to increase l2_weight to 1.0"
     )
 
     parser.add_argument(
-        "--l2_gen_scale", default=0.0,
+        "--l2_gen_scale", default=0.00002,
         help="scaling factor for regularising l2 norm of generator hidden weights"
     )
 
     parser.add_argument(
-        "--l2_con_scale", default=0.0,
+        "--l2_con_scale", default=0.00002,
         help="scaling factor for regularising l2 norm of controller hidden weights"
     )
 

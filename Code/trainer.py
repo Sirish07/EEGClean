@@ -29,7 +29,7 @@ class Trainer:
         writer = create_summary_writer(self.run_name)
         for self.epoch in range(self.maxepochs):
             print(f"Epoch: {self.epoch}")
-            train_loss, l2_loss, kl_weight, l2_weight = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer, writer)
+            train_loss, l2_loss, kl_weight, l2_weight = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val, l2_loss)
             
             if self.scheduler_on:
@@ -88,7 +88,7 @@ class Trainer:
             acc = average_correlation_coefficient(denoiseout, EEG)
             print(f"MSE loss = {mse_loss}, RRMSET Loss ={rmset_loss}, RRMSE_spec Loss = {rmsepsd_loss}, ACC = {acc}")
 
-    def __train_on_epoch(self, model, noiseEEG, EEG, optimizer, writer, use_tensorboard = True):
+    def __train_on_epoch(self, model, noiseEEG, EEG, optimizer):
         model.train()
         start = time.time()
         batch_size = self.batch_size
@@ -121,8 +121,7 @@ class Trainer:
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
-
-                    torch.nn.utils.clip_grad_norm(model.parameters(), max_norm = model.max_norm)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = model.max_norm)
                     optimizer.step()
                     train_loss += loss.data / float(batch_num)
                     train_recon_loss += mse_loss.data / float(batch_num)
@@ -142,7 +141,7 @@ class Trainer:
                 weight_step = max(current_step - self.cost_weights[cost_key]['schedule_start'], 0)
                 # Calculate schedule weight
                 self.cost_weights[cost_key]['weight'] = min(weight_step/ self.cost_weights[cost_key]['schedule_dur'], 1.0)
-
+    
     def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:
                 if all((train_epoch_loss['epoch_train_loss'] > past_loss for past_loss in train_loss_store[-self.scheduler_patience:])):
