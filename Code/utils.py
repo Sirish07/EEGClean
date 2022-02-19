@@ -100,10 +100,8 @@ def load_checkpoint(model_path, model, trainer, optimizer, input_filename='best'
         trainer.valid_loss_store      = state['train']['valid_loss_store']
         trainer.full_loss_store       = state['train']['full_loss_store']
         trainer.epoch                 = state['train']['epochs']
-        trainer.current_step          = state['train']['current_step']
         trainer.last_decay_epoch      = state['train']['last_decay_epoch']
         trainer.lr                    = state['train']['learning_rate']
-        trainer.cost_weights          = state['train']['cost_weights']
 
         return model, trainer, optimizer
 
