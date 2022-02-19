@@ -112,12 +112,12 @@ class Trainer:
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    l2_loss = model.l2_gen_scale * model.gru_generator.weight_hh.norm(2)/model.gru_generator.weight_hh.numel() + \
-                          model.l2_con_scale * model.gru_controller.weight_hh.norm(2)/model.gru_controller.weight_hh.numel()
+                    l2_loss = torch.Tensor([0]) #model.l2_gen_scale * model.gru_generator.weight_hh.norm(2)/model.gru_generator.weight_hh.numel() + \
+                          #model.l2_con_scale * model.gru_controller.weight_hh.norm(2)/model.gru_controller.weight_hh.numel()
                         
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
-                    loss = mse_loss + kl_weight * kl_loss + l2_weight * l2_loss
+                    loss = mse_loss +kl_weight * kl_loss + l2_weight * l2_loss.data[0]
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
@@ -138,9 +138,10 @@ class Trainer:
     def __weight_schedule(self, current_step):
         for cost_key in self.cost_weights.keys():
                 # Get step number of scheduler
-                weight_step = max(current_step - self.cost_weights[cost_key]['schedule_start'], 0)
-                # Calculate schedule weight
-                self.cost_weights[cost_key]['weight'] = min(weight_step/ self.cost_weights[cost_key]['schedule_dur'], 1.0)
+                if current_step <= self.cost_weights[cost_key]['schedule_start']:
+                    self.cost_weights[cost_key]['weight'] = 0.0001
+                else:
+                    self.cost_weights[cost_key]['weight'] =  min((current_step - self.cost_weights[cost_key]['schedule_start'])/ self.cost_weights[cost_key]['schedule_dur'], 0.006)
     
     def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:
@@ -171,7 +172,7 @@ class Trainer:
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    loss = mse_loss + kl_loss + l2_loss
+                    loss = mse_loss + kl_loss + l2_loss.data[0]
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     valid_loss += loss.data / float(batch_num)

@@ -31,6 +31,7 @@ if __name__ == "__main__":
     optimizer = make_optimizer(cfg, model)
     trainer = Trainer(cfg)
 
+    print(model)
     if cfg.is_train=="True":
         make_folder(MODEL_PATH)
         make_folder(RESULTS)

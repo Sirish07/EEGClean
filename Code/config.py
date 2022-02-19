@@ -37,13 +37,8 @@ def parse_arguments():
 
     # model hyperparameters
     parser.add_argument(
-        "--g_dim", default=128,
+        "--g_dim", default=32,
         help="dimensionality of the generator"
-    )
-
-    parser.add_argument(
-        "--u_dim", default=1,
-        help="dimensionality of the inferred inputs to the generator"
     )
 
     parser.add_argument(
@@ -52,18 +47,8 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--g0_encoder_dim", default=128,
+        "--g0_encoder_dim", default=32,
         help="dimensionality of the encoder for the initial conditions for the generator"
-    )
-
-    parser.add_argument(
-        "--c_encoder_dim", default=128,
-        help="dimensionality of the encoder for the controller"
-    )
-
-    parser.add_argument(
-        "--controller_dim", default=128,
-        help="dimensionality of the controller"
     )
 
     parser.add_argument(
@@ -72,29 +57,23 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--u_prior_logkappa", default=0.1,
-        help="initial log-variance for the leanable prior over the inferred inputs to generator"
-    )
-
-    parser.add_argument(
         "--keep_prob", default=1.0,
         help="keep probability for drop-out layers, if < 1 "
     )
 
     parser.add_argument(
-        "--clip_val", default=5.0,
+        "--clip_val", default=20.0,
         help="clips the hidden unit activity to be less than this value"
     )
 
     parser.add_argument(
-        "--max_norm", default=10.0,
+        "--max_norm", default=200.0,
         help="maximum gradient norm"
     )
 
     # optimizer hyperparameters
-
     parser.add_argument(
-        "--lr", default=0.01,
+        "--lr", default=0.3,
         help="learning rate for ADAM optimizer"
     )
 
@@ -134,33 +113,28 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--kl_weight_schedule_start", default=0,
+        "--kl_weight_schedule_start", default=6000,
         help="optimisation step to start kl_weight increase"
     )
 
     parser.add_argument(
-        "--kl_weight_schedule_dur", default=2000, 
+        "--kl_weight_schedule_dur", default=10000, 
         help="number of optimisation steps to increase kl_weight to 1.0"
     )
 
     parser.add_argument(
-        "--l2_weight_schedule_start", default=0,
+        "--l2_weight_schedule_start", default=6000,
         help="optimisation step to start l2_weight increase"
     )
 
     parser.add_argument(
-        "--l2_weight_schedule_dur", default=2000,
+        "--l2_weight_schedule_dur", default=10000,
         help="number of optimisation steps to increase l2_weight to 1.0"
     )
 
     parser.add_argument(
         "--l2_gen_scale", default=0.00002,
         help="scaling factor for regularising l2 norm of generator hidden weights"
-    )
-
-    parser.add_argument(
-        "--l2_con_scale", default=0.00002,
-        help="scaling factor for regularising l2 norm of controller hidden weights"
     )
 
     parser.add_argument(
