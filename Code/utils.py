@@ -1,8 +1,14 @@
 import os
 import shutil
 import torch.optim as opt
-import logging
 import torch
+import seaborn as sns
+import io
+import pandas as pd
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+from PIL import Image
+import numpy as np
 import datetime
 from tensorboardX import SummaryWriter
 
@@ -100,6 +106,19 @@ def load_checkpoint(model_path, model, trainer, optimizer, input_filename='best'
 
         return model, trainer, optimizer
 
+def gen_plot(epoch, dataset):
+    """Create a pyplot plot and save to buffer."""
+    plt.figure()
+    sns.scatterplot(x="col1", y="col2", data=dataset)
+    plt.title("Epoch num: " + str(epoch))
 
+def plotTSNE(epoch, state):
+    tsne = TSNE(n_components= 2, verbose=1, perplexity=40, n_iter=300)
+    tsne_results = tsne.fit_transform(state)
+    dataset = pd.DataFrame()
+    dataset['col1'] = tsne_results[:, 0]
+    dataset['col2'] = tsne_results[:, 1]
+    gen_plot(epoch, dataset)
 
+    
 

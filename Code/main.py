@@ -41,4 +41,6 @@ if __name__ == "__main__":
         print("Retrieving best model")
         print("===========================================")
         model, trainer, optimizer = load_checkpoint(MODEL_PATH, model, trainer, optimizer)
+    
+    print("Starting Test")
     trainer.test(model, noiseEEG_test, EEG_test)

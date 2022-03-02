@@ -3,6 +3,7 @@ import time
 import math
 from tqdm import tqdm
 import torch
+import datetime
 import torch.nn.functional as F
 from loss_function import *
 from utils import *
@@ -29,9 +30,12 @@ class Trainer:
         writer = create_summary_writer(self.run_name)
         for self.epoch in range(self.maxepochs):
             print(f"Epoch: {self.epoch}")
-            train_loss, l2_loss, kl_weight, l2_weight = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
+            train_loss, l2_loss, kl_weight, l2_weight, initial_state = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val, l2_loss)
-            
+            if self.epoch == 0 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
+                plotTSNE(self.epoch, initial_state)
+                writer.add_figure('Initial_State', plt.gcf(), self.epoch)
+
             if self.scheduler_on:
                 self.__apply_decay(self.train_loss_store, train_loss, optimizer)
 
@@ -93,6 +97,7 @@ class Trainer:
         start = time.time()
         batch_size = self.batch_size
         batch_num = math.ceil(noiseEEG.shape[0]/batch_size)
+        initial_state = []
         train_loss = 0
         train_recon_loss = 0
         train_kl_loss = 0
@@ -128,12 +133,17 @@ class Trainer:
                     train_kl_loss += kl_loss.data / float(batch_num)
 
                     pbar.update()
+                
+                if n_batch % 5 == 0:
+                    initial_state.append(model.initial_state.detach().numpy())
             pbar.close()
         end = time.time()
+        initial_state = np.stack(initial_state)
+        initial_state = np.reshape(initial_state, (-1, model.g_dim))
         print(f"Train loss: {train_loss}, time = {end-start}/per epoch")
         return {"epoch_train_loss": train_loss,
                 "epoch_recon_loss": train_recon_loss,
-                "epoch_kl_loss": train_kl_loss}, l2_loss, kl_weight, l2_weight
+                "epoch_kl_loss": train_kl_loss}, l2_loss, kl_weight, l2_weight, initial_state
 
     def __weight_schedule(self, current_step):
         for cost_key in self.cost_weights.keys():

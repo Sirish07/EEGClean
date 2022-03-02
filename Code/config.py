@@ -153,7 +153,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--maxepochs", default=50,
+        "--maxepochs", default=80,
         help="Total number of epochs"
     )
 

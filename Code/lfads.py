@@ -67,12 +67,14 @@ class LFADSNET(nn.Module):
         self.g0_prior_mean = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_mu
         self.g0_prior_logvar = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_logkappa
         self.gen_inputs = Variable(torch.zeros((batch_size, self.g_dim)).to(self.device))
+        
         self.efgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
         self.ebgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
 
         if self.save_variables:
             self.factors = torch.zeros(batch_size, self.T, self.factors_dim)
             self.predicted = torch.zeros(batch_size, self.T, self.inputs_dim)
+            self.initial_state = torch.zeros((batch_size, self.T, self.g_dim))
 
 
     def encode(self, x):
@@ -119,9 +121,9 @@ class LFADSNET(nn.Module):
                 out = self.dropout(out)
 
             self.output = self.recon_fc3(out)
-
             if self.save_variables:
                 self.factors[:, t] = self.f
+                self.initial_state[:, t] = self.g
                 self.predicted[:, t] = self.output
 
     def forward(self, x):
