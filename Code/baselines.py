@@ -30,14 +30,16 @@ class LSTM_FFN(nn.Module):
     def __init__(self, cfg):
         super(LSTM_FFN, self).__init__()
         self.__set__params(cfg)
-        self.lstm = nn.LSTM(input_size = self.inputs_dim, hidden_size = 1, batch_first = True)
-        self.fc1 = nn.Linear(1, self.inputs_dim)
+        self.lstm = nn.LSTM(input_size = 1, hidden_size = 1, batch_first = True)
+        self.fc1 = nn.Linear(self.inputs_dim, self.inputs_dim)
         self.fc2 = nn.Linear(self.inputs_dim, self.inputs_dim)
         self.fc3 = nn.Linear(self.inputs_dim, self.inputs_dim)
 
     
     def forward(self, x):
         output, (hidden, cell) = self.lstm(x)
+        batch_size = output.shape[0]
+        output = torch.reshape(output, (batch_size, self.inputs_dim))
         output = F.relu(self.fc1(output))
         output = F.relu(self.fc2(output))
         output = self.fc3(output)

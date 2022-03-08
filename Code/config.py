@@ -40,54 +40,13 @@ def parse_arguments():
         help="number of time-steps in one sequence (i.e. one data point)"
     )
 
-    # model hyperparameters
-    parser.add_argument(
-        "--g_dim", default=100,
-        help="dimensionality of the generator"
-    )
-
-    parser.add_argument(
-        "--u_dim", default=1,
-        help="dimensionality of the inferred inputs to the generator"
-    )
-
-    parser.add_argument(
-        "--factors_dim", default=20,
-        help="dimensionality of the latent factors"
-    )
-
-    parser.add_argument(
-        "--g0_encoder_dim", default=100,
-        help="dimensionality of the encoder for the initial conditions for the generator"
-    )
-
-    parser.add_argument(
-        "--c_encoder_dim", default=100,
-        help="dimensionality of the encoder for the controller"
-    )
-
-    parser.add_argument(
-        "--controller_dim", default=100,
-        help="dimensionality of the controller"
-    )
-
-    parser.add_argument(
-        "--g0_prior_logkappa", default=0.1,
-        help="initial log-variance for the learnable prior over the initial generator state"
-    )
-
-    parser.add_argument(
-        "--u_prior_logkappa", default=0.1,
-        help="initial log-variance for the leanable prior over the inferred inputs to generator"
-    )
-
     parser.add_argument(
         "--keep_prob", default=0.97,
         help="keep probability for drop-out layers, if < 1 "
     )
 
     parser.add_argument(
-        "--clip_val", default=5.0,
+        "--clip_val", default=10.0,
         help="clips the hidden unit activity to be less than this value"
     )
 
@@ -111,61 +70,6 @@ def parse_arguments():
     parser.add_argument(
         "--betas", default=(0.9,0.999),
         help="beta values for ADAM optimizer"
-    )
-
-    parser.add_argument(
-        "--lr_decay", default=0.95,
-        help="learning rate decay factor"
-    )
-
-    parser.add_argument(
-        "--lr_min", default=1e-5,
-        help="minimum learning rate"
-    )
-
-    parser.add_argument(
-        "--scheduler_on", default=True,
-        help="apply scheduler if True"
-    )
-
-    parser.add_argument(
-        "--scheduler_patience", default=6,
-        help="number of steps without loss decrease before weight decay"
-    )
-
-    parser.add_argument(
-        "--scheduler_cooldown", default=6,
-        help="number of steps after weight decay to wait before next weight decay"
-    )
-
-    parser.add_argument(
-        "--kl_weight_schedule_start", default=0,
-        help="optimisation step to start kl_weight increase"
-    )
-
-    parser.add_argument(
-        "--kl_weight_schedule_dur", default=10000, 
-        help="number of optimisation steps to increase kl_weight to 1.0"
-    )
-
-    parser.add_argument(
-        "--l2_weight_schedule_start", default=0,
-        help="optimisation step to start l2_weight increase"
-    )
-
-    parser.add_argument(
-        "--l2_weight_schedule_dur", default=10000,
-        help="number of optimisation steps to increase l2_weight to 1.0"
-    )
-
-    parser.add_argument(
-        "--l2_gen_scale", default=0.0,
-        help="scaling factor for regularising l2 norm of generator hidden weights"
-    )
-
-    parser.add_argument(
-        "--l2_con_scale", default=0.0,
-        help="scaling factor for regularising l2 norm of controller hidden weights"
     )
 
     parser.add_argument(

@@ -80,7 +80,7 @@ class Trainer:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
                 if self.model_name == "LSTM_FFN":
-                    noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, 1, datanum)), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, 1, datanum))
+                    noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, datanum, 1)), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, datanum, 1))
                 else:
                     noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
 
@@ -88,6 +88,9 @@ class Trainer:
                     optimizer.zero_grad()
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
+                    if self.model_name == "LSTM_FFN":
+                        denoiseout = torch.reshape(torch.FloatTensor(denoiseout), (batch_size, datanum, 1))
+                        
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     loss = mse_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
@@ -114,7 +117,7 @@ class Trainer:
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 if self.model_name == "LSTM_FFN":
-                    noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, 1, datanum)), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, 1, datanum))
+                    noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, datanum, 1)), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, datanum, 1))
                 else:
                     noiseEEG_batch, EEG_batch = torch.FloatTensor(noiseEEG_batch), torch.FloatTensor(EEG_batch)
                 with torch.no_grad():
