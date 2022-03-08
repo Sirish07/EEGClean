@@ -32,7 +32,7 @@ class Trainer:
             print(f"Epoch: {self.epoch}")
             train_loss, l2_loss, kl_weight, l2_weight, initial_state = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val, l2_loss)
-            if self.epoch == 0 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
+            if self.epoch == 6 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
                 plotTSNE(self.epoch, initial_state)
                 writer.add_figure('Initial_State', plt.gcf(), self.epoch)
 
@@ -148,10 +148,12 @@ class Trainer:
     def __weight_schedule(self, current_step):
         for cost_key in self.cost_weights.keys():
                 # Get step number of scheduler
-                if current_step <= self.cost_weights[cost_key]['schedule_start']:
-                    self.cost_weights[cost_key]['weight'] = 0.0001
+                if current_step <= 10000:
+                    self.cost_weights[cost_key]['weight'] = 1e-3
+                elif current_step > 10000 and current_step <= 20000:
+                    self.cost_weights[cost_key]['weight'] = 4e-3
                 else:
-                    self.cost_weights[cost_key]['weight'] =  min((current_step - self.cost_weights[cost_key]['schedule_start'])/ self.cost_weights[cost_key]['schedule_dur'], 0.006)
+                    self.cost_weights[cost_key]['weight'] =  7.5e-3
     
     def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:
