@@ -43,7 +43,7 @@ class LSTM_FFN(nn.Module):
         output = F.relu(self.fc1(output))
         output = F.relu(self.fc2(output))
         output = self.fc3(output)
-        self.predicted = output
+        self.predicted = torch.reshape(output, (output.shape[0], output.shape[1], 1))
 
     def __set__params(self, params):
         params = params.__dict__
