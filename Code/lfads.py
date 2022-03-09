@@ -44,7 +44,7 @@ class LFADSNET(nn.Module):
 
         """ Dropout Layer """
         self.dropout = nn.Dropout(1.0 - self.keep_prob)
-        for idx, m in self.named_modules():
+        for _, m in self.named_modules():
             if isinstance(m, nn.GRUCell):
                 k_ih = m.weight_ih.shape[1]
                 k_hh = m.weight_hh.shape[1]

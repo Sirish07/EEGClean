@@ -83,7 +83,7 @@ class Trainer:
     def test(self, model, noiseEEG, EEG):
         model.eval()
         with torch.no_grad():
-            noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 1)), torch.FloatTensor(np.expand_dims(EEG, axis = 1))
+            noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG, axis = 2)).to(self.device)
             model(noiseEEG)
             denoiseout = model.predicted
             mse_loss = denoise_loss_mse(denoiseout, EEG)
@@ -109,7 +109,8 @@ class Trainer:
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 1)), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 1))
+                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 2)).to(self.device)
+
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
                     self.__weight_schedule(self.current_step)
@@ -178,7 +179,7 @@ class Trainer:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 1)), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 1))
+                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 2)).to(self.device)
                 with torch.no_grad():
                     model(noiseEEG_batch)
                     denoiseout = model.predicted

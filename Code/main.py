@@ -14,7 +14,6 @@ if __name__ == "__main__":
 
     cfg = config.get_arguments()
     EXPERIMENT = f"{cfg.run_name}"
-    RESULTS = f"../results/{EXPERIMENT}"
     MODEL_PATH = f"../models/{EXPERIMENT}"
     os.environ['CUDA_VISIBLE_DEVICES']='0'
     ################################################# Loading Datasets ##################################################
@@ -27,14 +26,12 @@ if __name__ == "__main__":
         noise_all = np.load( file_location + 'EMG_all_epochs_512hz.npy')
 
     noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, noiseEEG_test, EEG_test, test_std_VALUE = prepare_data(EEG_all = EEG_all, noise_all = noise_all, combin_num = 10, train_per = 0.8, noise_type = cfg.noise_type)
-    model = LFADSNET(cfg)
+    model = LFADSNET(cfg).to(cfg.device)
     optimizer = make_optimizer(cfg, model)
     trainer = Trainer(cfg)
-
-    print(model)
+    
     if cfg.is_train=="True":
         make_folder(MODEL_PATH)
-        make_folder(RESULTS)
         trainer.train(model, noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, optimizer)
     else: 
         print("===========================================")

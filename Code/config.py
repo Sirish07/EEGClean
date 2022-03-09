@@ -26,12 +26,12 @@ def parse_arguments():
 
     # Input config
     parser.add_argument(
-        "--inputs_dim", default=512,
-        help="he dimensionality of the data (e.g. number of cells)"
+        "--inputs_dim", default=1,
+        help="the dimensionality of the data (e.g. number of cells)"
     )
 
     parser.add_argument(
-        "--T", default=1,
+        "--T", default=512,
         help="number of time-steps in one sequence (i.e. one data point)"
     )
 
@@ -73,7 +73,7 @@ def parse_arguments():
 
     # optimizer hyperparameters
     parser.add_argument(
-        "--lr", default=0.5,
+        "--lr", default=0.001,
         help="learning rate for ADAM optimizer"
     )
 
