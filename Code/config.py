@@ -26,12 +26,12 @@ def parse_arguments():
 
     # Input config
     parser.add_argument(
-        "--inputs_dim", default=1,
+        "--inputs_dim", default=32,
         help="the dimensionality of the data (e.g. number of cells)"
     )
 
     parser.add_argument(
-        "--T", default=512,
+        "--T", default=16,
         help="number of time-steps in one sequence (i.e. one data point)"
     )
 

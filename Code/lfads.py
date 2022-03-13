@@ -72,9 +72,9 @@ class LFADSNET(nn.Module):
         self.ebgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
 
         if self.save_variables:
-            self.factors = torch.zeros(batch_size, self.T, self.factors_dim)
-            self.predicted = torch.zeros(batch_size, self.T, self.inputs_dim)
-            self.initial_state = torch.zeros((batch_size, self.T, self.g_dim))
+            self.factors = torch.zeros(batch_size, self.T, self.factors_dim).to(self.device)
+            self.predicted = torch.zeros(batch_size, self.T, self.inputs_dim).to(self.device)
+            self.initial_state = torch.zeros((batch_size, self.T, self.g_dim)).to(self.device)
 
 
     def encode(self, x):
@@ -141,5 +141,8 @@ class LFADSNET(nn.Module):
         params = params.__dict__
         for k in params.keys():
             self.__setattr__(k, params[k])
+
+    def get_device(self):
+        return next(self.parameters()).device
     
 

@@ -83,7 +83,10 @@ class Trainer:
     def test(self, model, noiseEEG, EEG):
         model.eval()
         with torch.no_grad():
+            
             noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG, axis = 2)).to(self.device)
+            batch_size = noiseEEG.shape[0]
+            noiseEEG_batch, EEG_batch = torch.reshape(noiseEEG, (batch_size, self.T, self.inputs_dim)), torch.reshape(EEG, (batch_size, self.T, self.inputs_dim))
             model(noiseEEG)
             denoiseout = model.predicted
             mse_loss = denoise_loss_mse(denoiseout, EEG)
@@ -110,6 +113,7 @@ class Trainer:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
                 noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 2)).to(self.device)
+                noiseEEG_batch, EEG_batch = torch.reshape(noiseEEG_batch, (batch_size, self.T, self.inputs_dim)), torch.reshape(EEG_batch, (batch_size, self.T, self.inputs_dim))
 
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
@@ -136,7 +140,7 @@ class Trainer:
                     pbar.update()
                 
                 if n_batch % 5 == 0:
-                    initial_state.append(model.initial_state.detach().numpy())
+                    initial_state.append(model.initial_state.detach().cpu().numpy())
             pbar.close()
         end = time.time()
         initial_state = np.stack(initial_state)
@@ -179,7 +183,9 @@ class Trainer:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch :] , EEG[batch_size*n_batch :]
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
+                
                 noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 2)).to(self.device)
+                noiseEEG_batch, EEG_batch = torch.reshape(noiseEEG_batch, (batch_size, self.T, self.inputs_dim)), torch.reshape(EEG_batch, (batch_size, self.T, self.inputs_dim))
                 with torch.no_grad():
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
