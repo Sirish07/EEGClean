@@ -32,9 +32,9 @@ class Trainer:
             print(f"Epoch: {self.epoch}")
             train_loss, l2_loss, kl_weight, l2_weight, initial_state = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val, l2_loss)
-            if self.epoch == 6 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
-                plotTSNE(self.epoch, initial_state)
-                writer.add_figure('Initial_State', plt.gcf(), self.epoch)
+            # if self.epoch == 6 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
+            #     plotTSNE(self.epoch, initial_state)
+            #     writer.add_figure('Initial_State', plt.gcf(), self.epoch)
 
             if self.scheduler_on:
                 self.__apply_decay(self.train_loss_store, train_loss, optimizer)
@@ -82,17 +82,16 @@ class Trainer:
 
     def test(self, model, noiseEEG, EEG):
         model.eval()
+        batch_size = noiseEEG.shape[0]
         with torch.no_grad():
-            
             noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG, axis = 2)).to(self.device)
-            batch_size = noiseEEG.shape[0]
             noiseEEG_batch, EEG_batch = torch.reshape(noiseEEG, (batch_size, self.T, self.inputs_dim)), torch.reshape(EEG, (batch_size, self.T, self.inputs_dim))
-            model(noiseEEG)
+            model(noiseEEG_batch)
             denoiseout = model.predicted
-            mse_loss = denoise_loss_mse(denoiseout, EEG)
-            rmset_loss = denoise_loss_rrmset(denoiseout, EEG)
-            rmsepsd_loss = denoise_loss_rrmsepsd(denoiseout, EEG)
-            acc = average_correlation_coefficient(denoiseout, EEG)
+            mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
+            rmset_loss = denoise_loss_rrmset(denoiseout, EEG_batch)
+            rmsepsd_loss = denoise_loss_rrmsepsd(denoiseout, EEG_batch)
+            acc = average_correlation_coefficient(denoiseout, EEG_batch)
             print(f"MSE loss = {mse_loss}, RRMSET Loss ={rmset_loss}, RRMSE_spec Loss = {rmsepsd_loss}, ACC = {acc}")
 
     def __train_on_epoch(self, model, noiseEEG, EEG, optimizer):
@@ -112,9 +111,7 @@ class Trainer:
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 2)).to(self.device)
-                noiseEEG_batch, EEG_batch = torch.reshape(noiseEEG_batch, (batch_size, self.T, self.inputs_dim)), torch.reshape(EEG_batch, (batch_size, self.T, self.inputs_dim))
-
+                noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, self.T, self.inputs_dim)).to(self.device), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, self.T, self.inputs_dim)).to(self.device)
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
                     self.__weight_schedule(self.current_step)
@@ -122,17 +119,17 @@ class Trainer:
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    l2_loss = torch.Tensor([0]) #model.l2_gen_scale * model.gru_generator.weight_hh.norm(2)/model.gru_generator.weight_hh.numel() + \
-                          #model.l2_con_scale * model.gru_controller.weight_hh.norm(2)/model.gru_controller.weight_hh.numel()
-                        
+                    l2_loss = model.l2_gen_scale * model.gru_generator.weight_hh.norm(2)/model.gru_generator.weight_hh.numel()
+
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
-                    loss = mse_loss +kl_weight * kl_loss + l2_weight * l2_loss.data[0]
+                    loss = mse_loss #+kl_weight * kl_loss + l2_weight * l2_loss.data[0]
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = model.max_norm)
                     optimizer.step()
+                    model.fc_factors.weight.data = F.normalize(model.fc_factors.weight.data, dim=1)
                     train_loss += loss.data / float(batch_num)
                     train_recon_loss += mse_loss.data / float(batch_num)
                     train_kl_loss += kl_loss.data / float(batch_num)
@@ -184,14 +181,13 @@ class Trainer:
                 else:
                     noiseEEG_batch,EEG_batch =  noiseEEG[batch_size*n_batch : batch_size*(n_batch+1)] , EEG[batch_size*n_batch : batch_size*(n_batch+1)]
                 
-                noiseEEG_batch, EEG_batch = torch.FloatTensor(np.expand_dims(noiseEEG_batch, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG_batch, axis = 2)).to(self.device)
-                noiseEEG_batch, EEG_batch = torch.reshape(noiseEEG_batch, (batch_size, self.T, self.inputs_dim)), torch.reshape(EEG_batch, (batch_size, self.T, self.inputs_dim))
+                noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (-1, self.T, self.inputs_dim)).to(self.device), torch.reshape(torch.FloatTensor(EEG_batch), (-1, self.T, self.inputs_dim)).to(self.device)
                 with torch.no_grad():
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    loss = mse_loss + kl_loss + l2_loss.data[0]
+                    loss = mse_loss #+ kl_loss + l2_loss.data[0]
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     valid_loss += loss.data / float(batch_num)

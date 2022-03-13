@@ -26,12 +26,12 @@ def parse_arguments():
 
     # Input config
     parser.add_argument(
-        "--inputs_dim", default=32,
+        "--inputs_dim", default=512,
         help="the dimensionality of the data (e.g. number of cells)"
     )
 
     parser.add_argument(
-        "--T", default=16,
+        "--T", default=1,
         help="number of time-steps in one sequence (i.e. one data point)"
     )
 
@@ -39,6 +39,11 @@ def parse_arguments():
     parser.add_argument(
         "--g_dim", default=32,
         help="dimensionality of the generator"
+    )
+
+    parser.add_argument(
+        "--u_dim", default=1,
+        help="dimensionality of the inferred inputs to the generator"
     )
 
     parser.add_argument(
@@ -52,17 +57,31 @@ def parse_arguments():
     )
 
     parser.add_argument(
+        "--c_encoder_dim", default=32,
+        help="dimensionality of the encoder for the controller"
+    )
+    parser.add_argument(
+        "--controller_dim", default=32,
+        help="dimensionality of the controller"
+    )
+
+    parser.add_argument(
         "--g0_prior_logkappa", default=0.1,
         help="initial log-variance for the learnable prior over the initial generator state"
     )
 
     parser.add_argument(
-        "--keep_prob", default=1.0,
+        "--u_prior_logkappa", default=0.1,
+        help="initial log-variance for the leanable prior over the inferred inputs to generator"
+    )
+
+    parser.add_argument(
+        "--keep_prob", default=0.97,
         help="keep probability for drop-out layers, if < 1 "
     )
 
     parser.add_argument(
-        "--clip_val", default=20.0,
+        "--clip_val", default=5.0,
         help="clips the hidden unit activity to be less than this value"
     )
 
@@ -73,7 +92,7 @@ def parse_arguments():
 
     # optimizer hyperparameters
     parser.add_argument(
-        "--lr", default=0.001,
+        "--lr", default=0.5,
         help="learning rate for ADAM optimizer"
     )
 
@@ -133,7 +152,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--l2_gen_scale", default=0.00002,
+        "--l2_gen_scale", default=0.0,
         help="scaling factor for regularising l2 norm of generator hidden weights"
     )
 
@@ -153,12 +172,12 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--maxepochs", default=80,
+        "--maxepochs", default=75,
         help="Total number of epochs"
     )
 
     parser.add_argument(
-        "--batch_size", default=40,
+        "--batch_size", default=80,
         help="Input batch size"
     )
 

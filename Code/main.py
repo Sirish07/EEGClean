@@ -18,12 +18,8 @@ if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES']='0'
     ################################################# Loading Datasets ##################################################
     file_location = cfg.data
-    if cfg.noise_type == 'EOG':
-        EEG_all = np.load( file_location + 'EEG_all_epochs.npy')
-        noise_all = np.load( file_location + 'EOG_all_epochs.npy')
-    elif cfg.noise_type == 'EMG':
-        EEG_all = np.load( file_location + 'EEG_all_epochs_512hz.npy')                              
-        noise_all = np.load( file_location + 'EMG_all_epochs_512hz.npy')
+    EEG_all = np.load( file_location + 'EEG_all_epochs.npy')
+    noise_all = np.load( file_location + 'EOG_all_epochs.npy')
 
     noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, noiseEEG_test, EEG_test, test_std_VALUE = prepare_data(EEG_all = EEG_all, noise_all = noise_all, combin_num = 10, train_per = 0.8, noise_type = cfg.noise_type)
     model = LFADSNET(cfg).to(cfg.device) 
