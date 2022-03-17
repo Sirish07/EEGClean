@@ -30,7 +30,7 @@ class Trainer:
         writer = create_summary_writer(self.run_name)
         for self.epoch in range(self.maxepochs):
             print(f"Epoch: {self.epoch}")
-            train_loss, l2_loss, kl_weight, l2_weight, initial_state = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
+            train_loss, l2_loss, kl_weight, l2_weight, _ = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val, l2_loss)
             # if self.epoch == 6 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
             #     plotTSNE(self.epoch, initial_state)
@@ -84,8 +84,7 @@ class Trainer:
         model.eval()
         batch_size = noiseEEG.shape[0]
         with torch.no_grad():
-            noiseEEG, EEG = torch.FloatTensor(np.expand_dims(noiseEEG, axis = 2)).to(self.device), torch.FloatTensor(np.expand_dims(EEG, axis = 2)).to(self.device)
-            noiseEEG_batch, EEG_batch = torch.reshape(noiseEEG, (batch_size, self.T, self.inputs_dim)), torch.reshape(EEG, (batch_size, self.T, self.inputs_dim))
+            noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG), (batch_size, self.T, self.inputs_dim)).to(self.device), torch.reshape(torch.FloatTensor(EEG), (batch_size, self.T, self.inputs_dim)).to(self.device)
             model(noiseEEG_batch)
             denoiseout = model.predicted
             mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
@@ -114,25 +113,27 @@ class Trainer:
                 noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, self.T, self.inputs_dim)).to(self.device), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, self.T, self.inputs_dim)).to(self.device)
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
-                    self.__weight_schedule(self.current_step)
+                    # self.__weight_schedule(self.current_step)
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    l2_loss = model.l2_gen_scale * model.gru_generator.weight_hh.norm(2)/model.gru_generator.weight_hh.numel()
+                    l2_loss = model.l2_gen_scale * model.gru_generator.weight_hh.norm(2)/model.gru_generator.weight_hh.numel() + model.l2_con_scale * model.gru_controller.weight_hh.norm(2)/model.gru_controller.weight_hh.numel()
 
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
-                    loss = mse_loss #+kl_weight * kl_loss + l2_weight * l2_loss.data[0]
+                    loss = mse_loss #+ kl_weight * kl_loss #+ l2_weight * l2_loss.data[0]
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = model.max_norm)
                     optimizer.step()
-                    model.fc_factors.weight.data = F.normalize(model.fc_factors.weight.data, dim=1)
                     train_loss += loss.data / float(batch_num)
                     train_recon_loss += mse_loss.data / float(batch_num)
                     train_kl_loss += kl_loss.data / float(batch_num)
+
+                    # print("KL weight")
+                    # print(model.kl_weight)
 
                     pbar.update()
                 
@@ -151,11 +152,9 @@ class Trainer:
         for cost_key in self.cost_weights.keys():
                 # Get step number of scheduler
                 if current_step <= 10000:
-                    self.cost_weights[cost_key]['weight'] = 1e-3
-                elif current_step > 10000 and current_step <= 20000:
-                    self.cost_weights[cost_key]['weight'] = 4e-3
-                else:
-                    self.cost_weights[cost_key]['weight'] =  7.5e-3
+                    self.cost_weights[cost_key]['weight'] = 1e-5
+                elif current_step > 10000:
+                    self.cost_weights[cost_key]['weight'] = 1e-4
     
     def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:

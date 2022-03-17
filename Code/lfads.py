@@ -19,33 +19,38 @@ class LFADSNET(nn.Module):
         random.seed(self.seed)
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
-        if self.device == "cuda":
+        if self.device == 'cuda':
             torch.cuda.manual_seed_all(self.seed)
 
         """ Network Initialisation """
+
         # Generator Forward encoder
         self.gru_Egen_forward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.g0_encoder_dim)
 
         # Generator Backward encoder
         self.gru_Egen_backward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.g0_encoder_dim)
-        
+
         # Controller Forward encoder
         self.gru_Econ_forward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.c_encoder_dim)
+
         # Controller Backward encoder
         self.gru_Econ_backward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.c_encoder_dim)
-        
+
         # Controller
         self.gru_controller = nn.GRUCell(input_size = self.c_encoder_dim * 2 + self.factors_dim, hidden_size = self.controller_dim)
-        
+
         # Generator
         self.gru_generator = nn.GRUCell(input_size = self.u_dim, hidden_size = self.g_dim)
-        
+
         """ Fully Connected Layers """
+
         self.fc_g0mean = nn.Linear(in_features = 2 * self.g0_encoder_dim, out_features = self.g_dim)
         self.fc_g0logvar = nn.Linear(in_features = 2 * self.g0_encoder_dim, out_features = self.g_dim)
 
         self.fc_umean = nn.Linear(in_features = self.controller_dim, out_features = self.u_dim)
         self.fc_ulogvar = nn.Linear(in_features = self.controller_dim, out_features = self.u_dim)
+
+        self.fc_controller = nn.Linear(in_features = 2 * self.g0_encoder_dim, out_features = self.controller_dim)
 
         self.fc_factors = nn.Linear(in_features = self.g_dim, out_features = self.factors_dim)
 
@@ -55,7 +60,8 @@ class LFADSNET(nn.Module):
 
         """ Dropout Layer """
         self.dropout = nn.Dropout(1.0 - self.keep_prob)
-        for _, m in self.named_modules():
+
+        for m in self.modules():
             if isinstance(m, nn.GRUCell):
                 k_ih = m.weight_ih.shape[1]
                 k_hh = m.weight_hh.shape[1]
@@ -69,6 +75,9 @@ class LFADSNET(nn.Module):
         self.fc_factors.weight.data = F.normalize(self.fc_factors.weight.data, dim = 1)
         self.g0_prior_mu = nn.parameter.Parameter(torch.tensor(0.0))
         self.u_prior_mu  = nn.parameter.Parameter(torch.tensor(0.0))
+        
+        self.kl_weight = nn.parameter.Parameter(torch.tensor(0.0))
+
         from math import log
         self.g0_prior_logkappa = nn.parameter.Parameter(torch.tensor(log(self.g0_prior_logkappa)))
         self.u_prior_logkappa = nn.parameter.Parameter(torch.tensor(log(self.u_prior_logkappa)))
@@ -76,20 +85,23 @@ class LFADSNET(nn.Module):
     def initialize(self, batch_size = None):
 
         batch_size = batch_size if batch_size is not None else self.batch_size
+
         self.g0_prior_mean = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_mu
         self.u_prior_mean = torch.ones(batch_size, self.u_dim).to(self.device) * self.u_prior_mu
+
         self.g0_prior_logvar = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_logkappa
         self.u_prior_logvar = torch.ones(batch_size, self.u_dim).to(self.device) * self.u_prior_logkappa
-        self.c = Variable(torch.zeros((batch_size, self.controller_dim)).to(self.device))
+
         self.efgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
         self.ebgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
+
         self.efcon = torch.zeros((batch_size, self.T + 1, self.c_encoder_dim)).to(self.device)
         self.ebcon = torch.zeros((batch_size, self.T + 1, self.c_encoder_dim)).to(self.device)
 
         if self.save_variables:
-            self.factors = torch.zeros(batch_size, self.T, self.factors_dim).to(self.device)
-            self.predicted = torch.zeros(batch_size, self.T, self.inputs_dim).to(self.device)
-            self.initial_state = torch.zeros((batch_size, self.T, self.g_dim)).to(self.device)
+            self.factors = torch.zeros(batch_size, self.T, self.factors_dim)
+            self.initial_state = torch.zeros(batch_size, self.T, self.g_dim)
+            self.predicted = torch.zeros(batch_size, self.T, self.inputs_dim)
 
 
     def encode(self, x):
@@ -105,7 +117,7 @@ class LFADSNET(nn.Module):
 
             self.efcon[:, t] = torch.clamp(self.gru_Econ_forward(x[:, t - 1], self.efcon[:, t - 1].clone()), max = self.clip_val)
             self.ebcon[:, -(t + 1)] = torch.clamp(self.gru_Econ_backward(x[:, -t], self.ebcon[:, -t].clone()), max = self.clip_val)
-
+        
         egen = torch.cat((self.efgen, self.ebgen), dim = 1)
 
         if self.keep_prob < 1.0:
@@ -118,21 +130,27 @@ class LFADSNET(nn.Module):
         self.kl_loss   = KLCostGaussian(self.g0_mean, self.g0_logvar,
                                         self.g0_prior_mean, self.g0_prior_logvar)/x.shape[0]
 
+        self.c = self.fc_controller(egen)
         self.f = self.fc_factors(self.g)
-        
-    
+
+        # print("Printing Prior Parameters")
+        # print(self.g0_prior_mean, self.g0_prior_logvar)
+
     def generate(self, x):
         """ Generator Layer """
 
         for t in range(self.T):
 
             econ_and_fac = torch.cat((self.efcon[:, t + 1].clone(), self.ebcon[:, t].clone(), self.f), dim  = 1)
+
             if self.keep_prob < 1.0:
                 econ_and_fac = self.dropout(econ_and_fac)
             
             self.c = torch.clamp(self.gru_controller(econ_and_fac, self.c), min = 0.0, max = self.clip_val)
+
             self.u_mean = self.fc_umean(self.c)
             self.u_logvar = self.fc_ulogvar(self.c)
+
             self.u = Variable(torch.randn(self.batch_size, self.u_dim).to(self.device)) * torch.exp(0.5 * self.u_logvar) + self.u_mean
             
             self.kl_loss = self.kl_loss + KLCostGaussian(self.u_mean, self.u_logvar,
@@ -142,18 +160,19 @@ class LFADSNET(nn.Module):
 
             if self.keep_prob < 1.0:
                 self.g = self.dropout(self.g)
-
+            
             self.f = self.fc_factors(self.g)
 
             out = F.relu(self.recon_fc1(self.f))
             if self.keep_prob < 1.0:
                 out = self.dropout(out)
             
-            out = F.relu(self.recon_fc2(out))
+            out = self.recon_fc2(out)
             if self.keep_prob < 1.0:
                 out = self.dropout(out)
 
             self.output = self.recon_fc3(out)
+
             if self.save_variables:
                 self.factors[:, t] = self.f
                 self.initial_state[:, t] = self.g
@@ -174,8 +193,3 @@ class LFADSNET(nn.Module):
         params = params.__dict__
         for k in params.keys():
             self.__setattr__(k, params[k])
-
-    def get_device(self):
-        return next(self.parameters()).device
-    
-

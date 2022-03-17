@@ -12,9 +12,6 @@ import numpy as np
 import datetime
 from tensorboardX import SummaryWriter
 
-def make_optimizer(cfg, model):
-    return opt.Adam(model.parameters(), lr = cfg.lr, eps = cfg.eps, betas = cfg.betas)
-
 def make_folder(filepath):
     if not os.path.isdir(filepath):
             os.makedirs(filepath)

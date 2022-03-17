@@ -23,9 +23,8 @@ if __name__ == "__main__":
 
     noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, noiseEEG_test, EEG_test, test_std_VALUE = prepare_data(EEG_all = EEG_all, noise_all = noise_all, combin_num = 10, train_per = 0.8, noise_type = cfg.noise_type)
     model = LFADSNET(cfg).to(cfg.device) 
-    optimizer = make_optimizer(cfg, model)
+    optimizer = torch.optim.Adam(model.parameters(), lr = cfg.lr, betas = cfg.betas, eps = cfg.eps)
     trainer = Trainer(cfg)
-    
     if cfg.is_train=="True":
         make_folder(MODEL_PATH)
         trainer.train(model, noiseEEG_train, EEG_train, noiseEEG_val, EEG_val, optimizer)
