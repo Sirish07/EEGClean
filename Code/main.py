@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     cfg = config.get_arguments()
     EXPERIMENT = f"{cfg.run_name}"
-    MODEL_PATH = f"../models/{EXPERIMENT}"
+    MODEL_PATH = f"../Results/{EXPERIMENT}"
     os.environ['CUDA_VISIBLE_DEVICES']='0'
     ################################################# Loading Datasets ##################################################
     file_location = cfg.data

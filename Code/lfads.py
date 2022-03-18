@@ -75,8 +75,6 @@ class LFADSNET(nn.Module):
         self.fc_factors.weight.data = F.normalize(self.fc_factors.weight.data, dim = 1)
         self.g0_prior_mu = nn.parameter.Parameter(torch.tensor(0.0))
         self.u_prior_mu  = nn.parameter.Parameter(torch.tensor(0.0))
-        
-        self.kl_weight = nn.parameter.Parameter(torch.tensor(0.0))
 
         from math import log
         self.g0_prior_logkappa = nn.parameter.Parameter(torch.tensor(log(self.g0_prior_logkappa)))
@@ -124,7 +122,7 @@ class LFADSNET(nn.Module):
             egen = self.dropout(egen)
         
         self.g0_mean = self.fc_g0mean(egen)
-        self.g0_logvar = torch.clamp(self.fc_g0logvar(egen), min = np.log(0.001))
+        self.g0_logvar = torch.clamp(self.fc_g0logvar(egen), min = np.log(0.0001))
         self.g = Variable(torch.randn(self.batch_size, self.g_dim).to(self.device)) * torch.exp(0.5 * self.g0_logvar) + self.g0_mean
         
         self.kl_loss   = KLCostGaussian(self.g0_mean, self.g0_logvar,
@@ -132,9 +130,6 @@ class LFADSNET(nn.Module):
 
         self.c = self.fc_controller(egen)
         self.f = self.fc_factors(self.g)
-
-        # print("Printing Prior Parameters")
-        # print(self.g0_prior_mean, self.g0_prior_logvar)
 
     def generate(self, x):
         """ Generator Layer """
@@ -156,7 +151,7 @@ class LFADSNET(nn.Module):
             self.kl_loss = self.kl_loss + KLCostGaussian(self.u_mean, self.u_logvar,
                                         self.u_prior_mean, self.u_prior_logvar)/x.shape[0]
             
-            self.g = torch.clamp(self.gru_generator(self.u, self.g), min = 0.0, max = self.clip_val)
+            self.g = torch.clamp(self.gru_generator(self.u, self.g), min = -self.clip_val, max = self.clip_val)
 
             if self.keep_prob < 1.0:
                 self.g = self.dropout(self.g)

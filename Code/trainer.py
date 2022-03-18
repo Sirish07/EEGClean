@@ -113,7 +113,7 @@ class Trainer:
                 noiseEEG_batch, EEG_batch = torch.reshape(torch.FloatTensor(noiseEEG_batch), (batch_size, self.T, self.inputs_dim)).to(self.device), torch.reshape(torch.FloatTensor(EEG_batch), (batch_size, self.T, self.inputs_dim)).to(self.device)
                 with torch.set_grad_enabled(True):
                     optimizer.zero_grad()
-                    # self.__weight_schedule(self.current_step)
+                    self.__weight_schedule(self.current_step)
                     model(noiseEEG_batch)
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
@@ -122,18 +122,17 @@ class Trainer:
 
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
-                    loss = mse_loss #+ kl_weight * kl_loss #+ l2_weight * l2_loss.data[0]
+                    loss = mse_loss + kl_weight * kl_loss + l2_weight * l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = model.max_norm)
                     optimizer.step()
+                    model.fc_factors.weight.data = F.normalize(model.fc_factors.weight.data, dim=1)
+
                     train_loss += loss.data / float(batch_num)
                     train_recon_loss += mse_loss.data / float(batch_num)
                     train_kl_loss += kl_loss.data / float(batch_num)
-
-                    # print("KL weight")
-                    # print(model.kl_weight)
 
                     pbar.update()
                 
@@ -150,11 +149,10 @@ class Trainer:
 
     def __weight_schedule(self, current_step):
         for cost_key in self.cost_weights.keys():
-                # Get step number of scheduler
-                if current_step <= 10000:
-                    self.cost_weights[cost_key]['weight'] = 1e-5
-                elif current_step > 10000:
-                    self.cost_weights[cost_key]['weight'] = 1e-4
+            # Get step number of scheduler
+            weight_step = max(current_step - self.cost_weights[cost_key]['schedule_start'], 0)
+            # Calculate schedule weight
+            self.cost_weights[cost_key]['weight'] = min(weight_step/ self.cost_weights[cost_key]['schedule_dur'], 1.0)
     
     def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:
@@ -186,7 +184,7 @@ class Trainer:
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    loss = mse_loss #+ kl_loss + l2_loss.data[0]
+                    loss = mse_loss + kl_loss + l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     valid_loss += loss.data / float(batch_num)

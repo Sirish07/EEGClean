@@ -18,7 +18,7 @@ def make_folder(filepath):
 
 def create_summary_writer(run_name):
     EXPERIMENT = f"{run_name}"
-    MODEL_PATH = f"../models/{EXPERIMENT}"
+    MODEL_PATH = f"../Results/{EXPERIMENT}"
     writer = SummaryWriter(MODEL_PATH)
     print("Create tensorboard logger")
     return writer

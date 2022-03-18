@@ -65,7 +65,7 @@ def parse_arguments():
         help="keep probability for drop-out layers, if < 1 "
     )
     parser.add_argument(
-        "--clip_val", default=5.0,
+        "--clip_val", default=10.0,
         help="clips the hidden unit activity to be less than this value"
     )
     parser.add_argument(
@@ -112,7 +112,7 @@ def parse_arguments():
         help="optimisation step to start kl_weight increase"
     )
     parser.add_argument(
-        "--kl_weight_schedule_dur", default=10000, 
+        "--kl_weight_schedule_dur", default=20000, 
         help="number of optimisation steps to increase kl_weight to 1.0"
     )
     parser.add_argument(
@@ -120,7 +120,7 @@ def parse_arguments():
         help="optimisation step to start l2_weight increase"
     )
     parser.add_argument(
-        "--l2_weight_schedule_dur", default=10000,
+        "--l2_weight_schedule_dur", default=20000,
         help="number of optimisation steps to increase l2_weight to 1.0"
     )
     parser.add_argument(
@@ -148,7 +148,7 @@ def parse_arguments():
         help="Total number of epochs"
     )
     parser.add_argument(
-        "--batch_size", default=40,
+        "--batch_size", default=160,
         help="Input batch size"
     )
     parser.add_argument(
