@@ -53,7 +53,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--clip_val", default=20.0,
+        "--clip_val", default=10.0,
         help="clips the hidden unit activity to be less than this value"
     )
 
@@ -135,7 +135,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--batch_size", default=40,
+        "--batch_size", default=160,
         help="Input batch size"
     )
     parser.add_argument(

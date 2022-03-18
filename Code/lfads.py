@@ -58,6 +58,7 @@ class LFADSNET(nn.Module):
 
         self.fc_factors.weight.data = F.normalize(self.fc_factors.weight.data, dim = 1)
         self.g0_prior_mu = nn.parameter.Parameter(torch.tensor(0.0))
+        self.u_prior_mu  = nn.parameter.Parameter(torch.tensor(0.0))
 
         from math import log
         self.g0_prior_logkappa = nn.parameter.Parameter(torch.tensor(log(self.g0_prior_logkappa)))
@@ -106,8 +107,29 @@ class LFADSNET(nn.Module):
         """ Generator Layer """
 
         for t in range(self.T):
+
+            econ_and_fac = torch.cat((self.efcon[:, t+1].clone(), self.ebcon[:,t].clone(), self.f), dim = 1)
+
+            # Dropout the controller encoder outputs and factors
+            if self.keep_prob < 1.0:
+                econ_and_fac = self.dropout(econ_and_fac)
             
-            self.g = torch.clamp(self.gru_generator(self.f, self.g), min = 0.0, max = self.clip_val)
+            # Update controller with controller encoder outputs
+            self.c = torch.clamp(self.gru_controller(econ_and_fac, self.c), min=0.0, max=self.clip_val)
+
+            # Calculate posterior distribution parameters for inferred inputs from controller state
+            self.u_mean   = self.fc_umean(self.c)
+            self.u_logvar = self.fc_ulogvar(self.c)
+
+            # Sample inputs for generator from u(t) posterior distribution
+            self.u = Variable(torch.randn(self.batch_size, self.u_dim).to(self.device))*torch.exp(0.5*self.u_logvar) \
+                        + self.u_mean
+
+            # KL cost for u(t)
+            self.kl_loss = self.kl_loss + KLCostGaussian(self.u_mean, self.u_logvar,
+                                        self.u_prior_mean, self.u_prior_logvar)/x.shape[0]
+                                        
+            self.g = torch.clamp(self.gru_generator(self.u, self.g), min = -self.clip_val, max = self.clip_val)
 
             if self.keep_prob < 1.0:
                 self.g = self.dropout(self.g)

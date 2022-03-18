@@ -128,6 +128,7 @@ class Trainer:
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = model.max_norm)
                     optimizer.step()
+                    model.fc_factors.weight.data = F.normalize(model.fc_factors.weight.data, dim=1)
 
                     train_loss += loss.data / float(batch_num)
                     train_recon_loss += mse_loss.data / float(batch_num)
@@ -148,10 +149,10 @@ class Trainer:
 
     def __weight_schedule(self, current_step):
         for cost_key in self.cost_weights.keys():
-            if current_step < 20000:
-                self.cost_weights[cost_key]['weight'] = 1e-3
-            else:
-                self.cost_weights[cost_key]['weight'] = 4e-3
+            # Get step number of scheduler
+            weight_step = max(current_step - self.cost_weights[cost_key]['schedule_start'], 0)
+            # Calculate schedule weight
+            self.cost_weights[cost_key]['weight'] = min(weight_step/ self.cost_weights[cost_key]['schedule_dur'], 1.0)
     
     def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:
