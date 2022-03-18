@@ -30,7 +30,7 @@ class LFADSNET(nn.Module):
         self.gru_Egen_backward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.g0_encoder_dim)
 
         # Generator
-        self.gru_generator = nn.GRUCell(input_size = self.factors_dim, hidden_size = self.g_dim)
+        self.gru_generator = nn.GRUCell(input_size = self.g_dim, hidden_size = self.g_dim)
 
         """ Fully Connected Layers """
         self.fc_g0mean = nn.Linear(in_features = 2 * self.g0_encoder_dim, out_features = self.g_dim)
@@ -69,10 +69,9 @@ class LFADSNET(nn.Module):
         batch_size = batch_size if batch_size is not None else self.batch_size
 
         self.g0_prior_mean = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_mu
-        self.u_prior_mean = torch.ones(batch_size, self.u_dim).to(self.device) * self.u_prior_mu
-
         self.g0_prior_logvar = torch.ones(batch_size, self.g_dim).to(self.device) * self.g0_prior_logkappa
-        self.u_prior_logvar = torch.ones(batch_size, self.u_dim).to(self.device) * self.u_prior_logkappa
+
+        self.gen_inputs = torch.zeros(batch_size, self.g_dim).to(self.device)
 
         self.efgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
         self.ebgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
@@ -106,14 +105,12 @@ class LFADSNET(nn.Module):
         self.kl_loss   = KLCostGaussian(self.g0_mean, self.g0_logvar,
                                         self.g0_prior_mean, self.g0_prior_logvar)/x.shape[0]
 
-        self.f = self.fc_factors(self.g)
-
     def generate(self, x):
         """ Generator Layer """
 
         for t in range(self.T):
             
-            self.g = torch.clamp(self.gru_generator(self.f, self.g), min = -self.clip_val, max = self.clip_val)
+            self.g = torch.clamp(self.gru_generator(self.gen_inputs, self.g), min = -self.clip_val, max = self.clip_val)
 
             if self.keep_prob < 1.0:
                 self.g = self.dropout(self.g)

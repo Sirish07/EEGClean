@@ -122,7 +122,7 @@ class Trainer:
 
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
-                    loss = mse_loss + kl_weight * kl_loss + l2_weight * l2_loss
+                    loss = mse_loss #+ kl_weight * kl_loss + l2_weight * l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
@@ -186,7 +186,7 @@ class Trainer:
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    loss = mse_loss + kl_loss + l2_loss
+                    loss = mse_loss #+ kl_loss + l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     valid_loss += loss.data / float(batch_num)
