@@ -23,34 +23,18 @@ class LFADSNET(nn.Module):
             torch.cuda.manual_seed_all(self.seed)
 
         """ Network Initialisation """
-
         # Generator Forward encoder
         self.gru_Egen_forward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.g0_encoder_dim)
 
         # Generator Backward encoder
         self.gru_Egen_backward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.g0_encoder_dim)
 
-        # Controller Forward encoder
-        self.gru_Econ_forward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.c_encoder_dim)
-
-        # Controller Backward encoder
-        self.gru_Econ_backward = nn.GRUCell(input_size = self.inputs_dim, hidden_size = self.c_encoder_dim)
-
-        # Controller
-        self.gru_controller = nn.GRUCell(input_size = self.c_encoder_dim * 2 + self.factors_dim, hidden_size = self.controller_dim)
-
         # Generator
-        self.gru_generator = nn.GRUCell(input_size = self.u_dim, hidden_size = self.g_dim)
+        self.gru_generator = nn.GRUCell(input_size = self.factors_dim, hidden_size = self.g_dim)
 
         """ Fully Connected Layers """
-
         self.fc_g0mean = nn.Linear(in_features = 2 * self.g0_encoder_dim, out_features = self.g_dim)
         self.fc_g0logvar = nn.Linear(in_features = 2 * self.g0_encoder_dim, out_features = self.g_dim)
-
-        self.fc_umean = nn.Linear(in_features = self.controller_dim, out_features = self.u_dim)
-        self.fc_ulogvar = nn.Linear(in_features = self.controller_dim, out_features = self.u_dim)
-
-        self.fc_controller = nn.Linear(in_features = 2 * self.g0_encoder_dim, out_features = self.controller_dim)
 
         self.fc_factors = nn.Linear(in_features = self.g_dim, out_features = self.factors_dim)
 
@@ -93,9 +77,6 @@ class LFADSNET(nn.Module):
         self.efgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
         self.ebgen = Variable(torch.zeros((batch_size, self.g0_encoder_dim)).to(self.device))
 
-        self.efcon = torch.zeros((batch_size, self.T + 1, self.c_encoder_dim)).to(self.device)
-        self.ebcon = torch.zeros((batch_size, self.T + 1, self.c_encoder_dim)).to(self.device)
-
         if self.save_variables:
             self.factors = torch.zeros(batch_size, self.T, self.factors_dim)
             self.initial_state = torch.zeros(batch_size, self.T, self.g_dim)
@@ -113,9 +94,6 @@ class LFADSNET(nn.Module):
             self.efgen = torch.clamp(self.gru_Egen_forward(x[:, t - 1], self.efgen), max = self.clip_val)
             self.ebgen = torch.clamp(self.gru_Egen_backward(x[:, -t], self.ebgen), max = self.clip_val)
 
-            self.efcon[:, t] = torch.clamp(self.gru_Econ_forward(x[:, t - 1], self.efcon[:, t - 1].clone()), max = self.clip_val)
-            self.ebcon[:, -(t + 1)] = torch.clamp(self.gru_Econ_backward(x[:, -t], self.ebcon[:, -t].clone()), max = self.clip_val)
-        
         egen = torch.cat((self.efgen, self.ebgen), dim = 1)
 
         if self.keep_prob < 1.0:
@@ -128,30 +106,14 @@ class LFADSNET(nn.Module):
         self.kl_loss   = KLCostGaussian(self.g0_mean, self.g0_logvar,
                                         self.g0_prior_mean, self.g0_prior_logvar)/x.shape[0]
 
-        self.c = self.fc_controller(egen)
         self.f = self.fc_factors(self.g)
 
     def generate(self, x):
         """ Generator Layer """
 
         for t in range(self.T):
-
-            econ_and_fac = torch.cat((self.efcon[:, t + 1].clone(), self.ebcon[:, t].clone(), self.f), dim  = 1)
-
-            if self.keep_prob < 1.0:
-                econ_and_fac = self.dropout(econ_and_fac)
             
-            self.c = torch.clamp(self.gru_controller(econ_and_fac, self.c), min = 0.0, max = self.clip_val)
-
-            self.u_mean = self.fc_umean(self.c)
-            self.u_logvar = self.fc_ulogvar(self.c)
-
-            self.u = Variable(torch.randn(self.batch_size, self.u_dim).to(self.device)) * torch.exp(0.5 * self.u_logvar) + self.u_mean
-            
-            self.kl_loss = self.kl_loss + KLCostGaussian(self.u_mean, self.u_logvar,
-                                        self.u_prior_mean, self.u_prior_logvar)/x.shape[0]
-            
-            self.g = torch.clamp(self.gru_generator(self.u, self.g), min = -self.clip_val, max = self.clip_val)
+            self.g = torch.clamp(self.gru_generator(self.f, self.g), min = -self.clip_val, max = self.clip_val)
 
             if self.keep_prob < 1.0:
                 self.g = self.dropout(self.g)
