@@ -30,11 +30,11 @@ class Trainer:
         writer = create_summary_writer(self.run_name)
         for self.epoch in range(self.maxepochs):
             print(f"Epoch: {self.epoch}")
-            train_loss, l2_loss, kl_weight, l2_weight, _ = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
+            train_loss, l2_loss, kl_weight, l2_weight, initial_state = self.__train_on_epoch(model, noiseEEG_train, EEG_train, optimizer)
             valid_loss = self.__val_on_epoch(model, noiseEEG_val, EEG_val, l2_loss)
-            # if self.epoch == 6 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
-            #     plotTSNE(self.epoch, initial_state)
-            #     writer.add_figure('Initial_State', plt.gcf(), self.epoch)
+            if self.epoch == 6 or self.epoch == 10 or self.epoch == self.maxepochs - 1:
+                plotTSNE(self.epoch, initial_state)
+                writer.add_figure('Initial_State', plt.gcf(), self.epoch)
 
             if self.scheduler_on:
                 self.__apply_decay(self.train_loss_store, train_loss, optimizer)
@@ -122,13 +122,12 @@ class Trainer:
 
                     kl_weight = self.cost_weights['kl']['weight']
                     l2_weight = self.cost_weights['l2']['weight']
-                    loss = mse_loss #+ kl_weight * kl_loss + l2_weight * l2_loss
+                    loss = mse_loss + kl_weight * kl_loss + l2_weight * l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = model.max_norm)
                     optimizer.step()
-                    model.fc_factors.weight.data = F.normalize(model.fc_factors.weight.data, dim=1)
 
                     train_loss += loss.data / float(batch_num)
                     train_recon_loss += mse_loss.data / float(batch_num)
@@ -149,12 +148,10 @@ class Trainer:
 
     def __weight_schedule(self, current_step):
         for cost_key in self.cost_weights.keys():
-            if current_step < 1700:
-                self.cost_weights[cost_key]['weight'] = 1e-4
-            elif current_step >= 1700 and current_step < 6800:
-                self.cost_weights[cost_key]['weight'] = max(((current_step - 1700)/5100) * 1e-3, 1e-4)
-            elif current_step >= 6800:
+            if current_step < 20000:
                 self.cost_weights[cost_key]['weight'] = 1e-3
+            else:
+                self.cost_weights[cost_key]['weight'] = 4e-3
     
     def __apply_decay(self, train_loss_store, train_epoch_loss, optimizer):
         if len(train_loss_store) >= self.scheduler_patience:
@@ -186,7 +183,7 @@ class Trainer:
                     denoiseout = model.predicted
                     mse_loss = denoise_loss_mse(denoiseout, EEG_batch)
                     kl_loss = model.kl_loss
-                    loss = mse_loss #+ kl_loss + l2_loss
+                    loss = mse_loss + kl_loss + l2_loss
                     assert not torch.isnan(loss.data), "Loss is NaN"
 
                     valid_loss += loss.data / float(batch_num)
@@ -207,7 +204,7 @@ class Trainer:
 
     def __save_checkpoint(self, model, optimizer, force = False, purge_limit = 20):
         EXPERIMENT = f"{self.run_name}"
-        model_path = f"../models/{EXPERIMENT}"
+        model_path = f"../Results/{EXPERIMENT}"
         if force:
             pass
         else:

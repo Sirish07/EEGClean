@@ -32,10 +32,7 @@ def parse_arguments():
         "--g_dim", default=32,
         help="dimensionality of the generator"
     )
-    parser.add_argument(
-        "--u_dim", default=1,
-        help="dimensionality of the inferred inputs to the generator"
-    )
+
     parser.add_argument(
         "--factors_dim", default=20,
         help="dimensionality of the latent factors"
@@ -44,30 +41,22 @@ def parse_arguments():
         "--g0_encoder_dim", default=32,
         help="dimensionality of the encoder for the initial conditions for the generator"
     )
-    parser.add_argument(
-        "--c_encoder_dim", default=32,
-        help="dimensionality of the encoder for the controller"
-    )
-    parser.add_argument(
-        "--controller_dim", default=32,
-        help="dimensionality of the controller"
-    )
+
     parser.add_argument(
         "--g0_prior_logkappa", default=0.1,
         help="initial log-variance for the learnable prior over the initial generator state"
     )
+
     parser.add_argument(
-        "--u_prior_logkappa", default=0.1,
-        help="initial log-variance for the leanable prior over the inferred inputs to generator"
-    )
-    parser.add_argument(
-        "--keep_prob", default=0.97,
+        "--keep_prob", default=1.0,
         help="keep probability for drop-out layers, if < 1 "
     )
+
     parser.add_argument(
-        "--clip_val", default=10.0,
+        "--clip_val", default=20.0,
         help="clips the hidden unit activity to be less than this value"
     )
+
     parser.add_argument(
         "--max_norm", default=200.0,
         help="maximum gradient norm"
@@ -127,10 +116,7 @@ def parse_arguments():
         "--l2_gen_scale", default=0.0,
         help="scaling factor for regularising l2 norm of generator hidden weights"
     )
-    parser.add_argument(
-        "--l2_con_scale", default=0.0,
-        help="scaling factor for regularising l2 norm of controller hidden weights"
-    )
+
     parser.add_argument(
         "--device", default='cuda' if torch.cuda.is_available() else 'cpu',
         help="device to use"
@@ -144,11 +130,12 @@ def parse_arguments():
         help="Set Random Seed"
     )
     parser.add_argument(
-        "--maxepochs", default=50,
+        "--maxepochs", default=80,
         help="Total number of epochs"
     )
+
     parser.add_argument(
-        "--batch_size", default=160,
+        "--batch_size", default=40,
         help="Input batch size"
     )
     parser.add_argument(
@@ -160,6 +147,7 @@ def parse_arguments():
         help="Noise type to be mixed"
     )
     return parser
+
 def get_arguments():
     cfg = parse_arguments().parse_known_args()[0]
     for i, ii in cfg.__dict__.items():
