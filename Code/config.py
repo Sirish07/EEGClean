@@ -20,11 +20,11 @@ def parse_arguments():
     )
     # Input config
     parser.add_argument(
-        "--inputs_dim", default=512,
+        "--inputs_dim", default=1,
         help="he dimensionality of the data (e.g. number of cells)"
     )
     parser.add_argument(
-        "--T", default=1,
+        "--T", default=512,
         help="number of time-steps in one sequence (i.e. one data point)"
     )
     # model hyperparameters
@@ -38,7 +38,7 @@ def parse_arguments():
         help="dimensionality of the latent factors"
     )
     parser.add_argument(
-        "--g0_encoder_dim", default=32,
+        "--g0_encoder_dim", default=1,
         help="dimensionality of the encoder for the initial conditions for the generator"
     )
 
